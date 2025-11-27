@@ -291,6 +291,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
+    if (path === '/api/admin/password' && method === 'POST') {
+      const { password } = req.body;
+      const adminPassword = process.env.ADMIN_PASSWORD;
+      
+      if (!adminPassword) {
+        return res.status(500).json({ error: "Admin password not configured" });
+      }
+      
+      if (password === adminPassword) {
+        return res.json({ success: true });
+      } else {
+        return res.status(401).json({ error: "Invalid password" });
+      }
+    }
+
     if (path === '/api/admin/nonce' && method === 'POST') {
       const { walletAddress } = req.body;
       if (!walletAddress) {
