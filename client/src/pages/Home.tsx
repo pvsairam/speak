@@ -724,8 +724,9 @@ const ProfileView = ({ isConnected, walletAddress, handleConnect, onLogout, stat
 
         <div className="mt-12 text-center animate-sketch-in opacity-50" style={{animationDelay: '500ms'}}>
         <p className="text-xs text-gray-400 mb-2">Powered by</p>
-        <div className="flex justify-center gap-4 text-xs font-bold">
+        <div className="flex justify-center gap-2 text-xs font-bold items-center">
             <span>BASE</span>
+            <span className="text-gray-300">•</span>
             <span>FARCASTER</span>
         </div>
         </div>
