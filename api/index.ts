@@ -12,15 +12,15 @@ type ConfessionCategory = typeof confessionCategories[number];
 const confessions = pgTable("confessions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   originalText: text("original_text").notNull(),
-  processedText: text("processed_text").notNull(),
-  category: varchar("category", { length: 50 }).notNull().default("Other"),
+  displayText: text("display_text").notNull(),
+  category: text("category").notNull().default("Other"),
   sentimentScore: integer("sentiment_score").notNull().default(50),
   likes: integer("likes").notNull().default(0),
   dislikes: integer("dislikes").notNull().default(0),
   isAnchored: boolean("is_anchored").notNull().default(false),
-  txHash: varchar("tx_hash", { length: 255 }),
+  txHash: text("tx_hash"),
   isHidden: boolean("is_hidden").notNull().default(false),
-  timestamp: timestamp("timestamp").defaultNow().notNull(),
+  timestamp: integer("timestamp").notNull(),
 });
 
 const votes = pgTable("votes", {
@@ -148,7 +148,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (path === '/api/confessions' && method === 'POST') {
-      const { originalText, displayText, category = "Other" } = req.body;
+      const { originalText, displayText, category = "Other", isAnchored = false, txHash = null } = req.body;
       
       if (!originalText || !displayText) {
         return res.status(400).json({ error: "originalText and displayText are required" });
@@ -156,10 +156,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       
       const [confession] = await db.insert(confessions).values({
         originalText,
-        processedText: displayText,
+        displayText,
         category: category as ConfessionCategory,
         sentimentScore: 50,
-        isAnchored: false,
+        isAnchored: Boolean(isAnchored),
+        txHash: txHash || null,
+        timestamp: Math.floor(Date.now() / 1000),
       }).returning();
       
       return res.status(201).json(confession);
@@ -189,14 +191,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const id = path.split('/')[3];
       const { voteType, visitorId } = req.body;
       
-      if (!voteType || !['up', 'down'].includes(voteType)) {
+      if (!voteType || !['up', 'down', 'like', 'dislike'].includes(voteType)) {
         return res.status(400).json({ error: "Invalid vote type" });
       }
       if (!visitorId) {
         return res.status(400).json({ error: "Visitor ID required" });
       }
       
-      const mappedVoteType = voteType === 'up' ? 'like' : 'dislike';
+      const mappedVoteType = (voteType === 'up' || voteType === 'like') ? 'like' : 'dislike';
       
       const [existingVote] = await db.select().from(votes).where(
         and(eq(votes.confessionId, id), eq(votes.visitorId, visitorId))
@@ -274,7 +276,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .slice(0, 3)
         .map(c => ({
           id: c.id,
-          text: c.processedText?.substring(0, 100) + (c.processedText?.length > 100 ? '...' : ''),
+          text: c.displayText?.substring(0, 100) + ((c.displayText?.length || 0) > 100 ? '...' : ''),
           likes: c.likes || 0,
           category: c.category
         }));

@@ -167,6 +167,8 @@ export const switchToCorrectNetwork = async (): Promise<void> => {
 };
 
 export const getContractFee = async (): Promise<{ feeWei: bigint; feeUsd: number; ethPrice: number }> => {
+  const DEFAULT_FEE = { feeWei: BigInt(400000000000000), feeUsd: 1.00, ethPrice: 2500 };
+  
   if (!isAnchoringEnabled()) {
     return { feeWei: BigInt(0), feeUsd: 0, ethPrice: 0 };
   }
@@ -174,32 +176,60 @@ export const getContractFee = async (): Promise<{ feeWei: bigint; feeUsd: number
   try {
     const publicClient = await getPublicClient();
     
-    const [feeWei, feeUsdCents, ethPriceRaw] = await Promise.all([
-      publicClient.readContract({
+    let feeWei: bigint = DEFAULT_FEE.feeWei;
+    let feeUsdCents: number = 100;
+    let ethPriceRaw: number = 250000000000;
+
+    try {
+      const result = await publicClient.readContract({
         address: CONTRACT_ADDRESS as `0x${string}`,
         abi: ABI,
         functionName: 'getFeeInWei',
-      }),
-      publicClient.readContract({
+      });
+      feeWei = result as bigint;
+    } catch {
+      try {
+        const result = await publicClient.readContract({
+          address: CONTRACT_ADDRESS as `0x${string}`,
+          abi: ABI,
+          functionName: 'confessionFee',
+        });
+        feeWei = result as bigint;
+      } catch {
+        console.log('Using default fee: contract fee functions not available');
+      }
+    }
+
+    try {
+      const result = await publicClient.readContract({
         address: CONTRACT_ADDRESS as `0x${string}`,
         abi: ABI,
         functionName: 'feeUsdCents',
-      }),
-      publicClient.readContract({
+      });
+      feeUsdCents = Number(result);
+    } catch {
+      console.log('Using default USD fee');
+    }
+
+    try {
+      const result = await publicClient.readContract({
         address: CONTRACT_ADDRESS as `0x${string}`,
         abi: ABI,
         functionName: 'getEthPrice',
-      }),
-    ]);
+      });
+      ethPriceRaw = Number(result);
+    } catch {
+      console.log('Using default ETH price');
+    }
 
     return {
-      feeWei: feeWei as bigint,
-      feeUsd: Number(feeUsdCents) / 100,
-      ethPrice: Number(ethPriceRaw) / 1e8,
+      feeWei,
+      feeUsd: feeUsdCents / 100,
+      ethPrice: ethPriceRaw / 1e8,
     };
   } catch (error) {
-    console.error("Failed to get contract fee:", error);
-    return { feeWei: BigInt(100000000000000), feeUsd: 0.25, ethPrice: 2500 };
+    console.log("Using default contract fee");
+    return DEFAULT_FEE;
   }
 };
 

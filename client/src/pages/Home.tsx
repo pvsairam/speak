@@ -71,7 +71,15 @@ const fetchConfessions = async (): Promise<Confession[]> => {
       headers: { 'x-visitor-id': getVisitorId() }
     });
     if (!response.ok) throw new Error('Failed to fetch');
-    return await response.json();
+    const data = await response.json();
+    return data.map((c: any) => ({
+      ...c,
+      displayText: c.processedText || c.displayText || c.originalText,
+      timestamp: typeof c.timestamp === 'number' && c.timestamp < 10000000000 
+        ? c.timestamp * 1000 
+        : new Date(c.timestamp).getTime(),
+      userVote: c.userVote === 'like' ? 'like' : c.userVote === 'dislike' ? 'dislike' : null,
+    }));
   } catch (error) {
     console.error('Error fetching confessions:', error);
     return [];
@@ -93,7 +101,15 @@ const createConfession = async (data: {
       body: JSON.stringify(data),
     });
     if (!response.ok) throw new Error('Failed to create');
-    return await response.json();
+    const result = await response.json();
+    return {
+      ...result,
+      displayText: result.processedText || result.displayText || result.originalText,
+      timestamp: typeof result.timestamp === 'number' && result.timestamp < 10000000000 
+        ? result.timestamp * 1000 
+        : new Date(result.timestamp).getTime(),
+      userVote: null,
+    };
   } catch (error) {
     console.error('Error creating confession:', error);
     return null;
@@ -108,7 +124,15 @@ const voteOnConfession = async (id: string, voteType: 'like' | 'dislike'): Promi
       body: JSON.stringify({ voteType, visitorId: getVisitorId() }),
     });
     if (!response.ok) throw new Error('Failed to vote');
-    return await response.json();
+    const data = await response.json();
+    return {
+      ...data,
+      displayText: data.processedText || data.displayText || data.originalText,
+      timestamp: typeof data.timestamp === 'number' && data.timestamp < 10000000000 
+        ? data.timestamp * 1000 
+        : new Date(data.timestamp).getTime(),
+      userVote: data.userVote || voteType,
+    };
   } catch (error) {
     console.error('Error voting:', error);
     return null;
@@ -498,15 +522,50 @@ interface TrendsData {
 const TrendsView = () => {
   const [trends, setTrends] = useState<TrendsData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     fetch('/api/trends')
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) throw new Error('API error');
+        return res.json();
+      })
       .then(data => {
-        setTrends(data);
+        if (data && (typeof data.total === 'number' || typeof data.totalConfessions === 'number')) {
+          let categoryArr: { name: string; count: number; percent: number }[] = [];
+          
+          if (data.categoryBreakdown) {
+            categoryArr = Object.entries(data.categoryBreakdown).map(([name, info]: [string, any]) => ({
+              name,
+              count: info.count || 0,
+              percent: info.percentage || 0,
+            }));
+          } else if (data.categories) {
+            categoryArr = data.categories;
+          }
+          
+          const topCat = data.topCategory || (categoryArr.length > 0 
+            ? categoryArr.reduce((a, b) => (b.count > a.count ? b : a), { name: 'Other', count: 0 }).name 
+            : 'Other');
+          
+          setTrends({
+            total: data.total ?? data.totalConfessions ?? 0,
+            anchored: data.anchored ?? data.anchoredConfessions ?? 0,
+            anchoredPercent: data.anchoredPercent ?? data.anchoredPercentage ?? 0,
+            topCategory: topCat,
+            categories: categoryArr,
+            topConfessions: data.topConfessions || [],
+            totalLikes: data.totalLikes || 0,
+          });
+        } else {
+          setError(true);
+        }
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(() => {
+        setError(true);
+        setLoading(false);
+      });
   }, []);
 
   if (loading) {
@@ -514,6 +573,17 @@ const TrendsView = () => {
       <div className="space-y-6 animate-fade-in">
         <h2 className="text-3xl font-display font-black">Pulse.</h2>
         <div className="text-center py-12 text-gray-400">Loading trends...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6 animate-fade-in">
+        <h2 className="text-3xl font-display font-black">Pulse.</h2>
+        <SketchCard className="text-center py-8">
+          <p className="text-gray-500">Unable to load trends. Please try again later.</p>
+        </SketchCard>
       </div>
     );
   }
