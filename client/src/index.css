@@ -1,0 +1,254 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --button-outline: rgba(0,0,0, .10);
+  --badge-outline: rgba(0,0,0, .05);
+  --opaque-button-border-intensity: -8;
+  --elevate-1: rgba(0,0,0, .03);
+  --elevate-2: rgba(0,0,0, .08);
+  --background: 45 29% 97%;
+  --foreground: 0 0% 10%;
+  --border: 0 0% 0%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 10%;
+  --card-border: 0 0% 0%;
+  --sidebar: 45 29% 95%;
+  --sidebar-foreground: 0 0% 10%;
+  --sidebar-border: 0 0% 0%;
+  --sidebar-primary: 174 72% 56%;
+  --sidebar-primary-foreground: 0 0% 0%;
+  --sidebar-accent: 45 29% 90%;
+  --sidebar-accent-foreground: 0 0% 10%;
+  --sidebar-ring: 174 72% 56%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 10%;
+  --popover-border: 0 0% 0%;
+  --primary: 174 72% 56%;
+  --primary-foreground: 0 0% 0%;
+  --secondary: 45 29% 92%;
+  --secondary-foreground: 0 0% 10%;
+  --muted: 45 10% 86%;
+  --muted-foreground: 0 3% 35%;
+  --accent: 174 72% 90%;
+  --accent-foreground: 0 0% 10%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --input: 0 0% 0%;
+  --ring: 174 72% 56%;
+  --chart-1: 174 72% 56%;
+  --chart-2: 280 75% 60%;
+  --chart-3: 30 80% 55%;
+  --chart-4: 200 70% 50%;
+  --chart-5: 340 80% 55%;
+  --font-sans: "IBM Plex Sans", sans-serif;
+  --font-display: "Inter", sans-serif;
+  --font-mono: "Fira Code", monospace;
+  --radius: .75rem;
+  --shadow-2xs: 0px 2px 0px 0px hsl(0 0% 0% / 0.00);
+  --shadow-xs: 0px 2px 0px 0px hsl(0 0% 0% / 0.00);
+  --shadow-sm: 2px 2px 0px 0px rgba(0,0,0,1);
+  --shadow: 3px 3px 0px 0px rgba(0,0,0,1);
+  --shadow-md: 4px 4px 0px 0px rgba(0,0,0,1);
+  --shadow-lg: 5px 5px 0px 0px rgba(0,0,0,1);
+  --shadow-xl: 6px 6px 0px 0px rgba(0,0,0,1);
+  --shadow-2xl: 8px 8px 0px 0px rgba(0,0,0,1);
+  --tracking-normal: 0em;
+  --spacing: 0.25rem;
+
+  --sidebar-primary-border: hsl(var(--sidebar-primary));
+  --sidebar-primary-border: hsl(from hsl(var(--sidebar-primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --sidebar-accent-border: hsl(var(--sidebar-accent));
+  --sidebar-accent-border: hsl(from hsl(var(--sidebar-accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --primary-border: hsl(var(--primary));
+  --primary-border: hsl(from hsl(var(--primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --secondary-border: hsl(var(--secondary));
+  --secondary-border: hsl(from hsl(var(--secondary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --muted-border: hsl(var(--muted));
+  --muted-border: hsl(from hsl(var(--muted)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --accent-border: hsl(var(--accent));
+  --accent-border: hsl(from hsl(var(--accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --destructive-border: hsl(var(--destructive));
+  --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+}
+
+.dark {
+  --button-outline: rgba(255,255,255, .10);
+  --badge-outline: rgba(255,255,255, .05);
+  --opaque-button-border-intensity: 9;
+  --elevate-1: rgba(255,255,255, .04);
+  --elevate-2: rgba(255,255,255, .09);
+  --background: 30 5% 12%;
+  --foreground: 45 29% 95%;
+  --border: 45 29% 30%;
+  --card: 30 5% 15%;
+  --card-foreground: 45 29% 95%;
+  --card-border: 45 29% 25%;
+  --sidebar: 30 5% 14%;
+  --sidebar-foreground: 45 29% 95%;
+  --sidebar-border: 45 29% 22%;
+  --sidebar-primary: 174 72% 56%;
+  --sidebar-primary-foreground: 0 0% 0%;
+  --sidebar-accent: 30 5% 20%;
+  --sidebar-accent-foreground: 45 29% 95%;
+  --sidebar-ring: 174 72% 60%;
+  --popover: 30 5% 16%;
+  --popover-foreground: 45 29% 95%;
+  --popover-border: 45 29% 24%;
+  --primary: 174 72% 56%;
+  --primary-foreground: 0 0% 0%;
+  --secondary: 30 5% 20%;
+  --secondary-foreground: 45 29% 95%;
+  --muted: 30 3% 25%;
+  --muted-foreground: 45 10% 70%;
+  --accent: 174 30% 22%;
+  --accent-foreground: 174 72% 90%;
+  --destructive: 0 84% 50%;
+  --destructive-foreground: 0 0% 100%;
+  --input: 45 29% 35%;
+  --ring: 174 72% 60%;
+  --chart-1: 174 72% 65%;
+  --chart-2: 280 75% 70%;
+  --chart-3: 30 80% 70%;
+  --chart-4: 200 70% 65%;
+  --chart-5: 340 80% 68%;
+
+  --sidebar-primary-border: hsl(var(--sidebar-primary));
+  --sidebar-primary-border: hsl(from hsl(var(--sidebar-primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --sidebar-accent-border: hsl(var(--sidebar-accent));
+  --sidebar-accent-border: hsl(from hsl(var(--sidebar-accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --primary-border: hsl(var(--primary));
+  --primary-border: hsl(from hsl(var(--primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --secondary-border: hsl(var(--secondary));
+  --secondary-border: hsl(from hsl(var(--secondary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --muted-border: hsl(var(--muted));
+  --muted-border: hsl(from hsl(var(--muted)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --accent-border: hsl(var(--accent));
+  --accent-border: hsl(from hsl(var(--accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --destructive-border: hsl(var(--destructive));
+  --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+    background-image: radial-gradient(hsl(var(--muted)) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+}
+
+@layer utilities {
+  input[type="search"]::-webkit-search-cancel-button {
+    @apply hidden;
+  }
+
+  [contenteditable][data-placeholder]:empty::before {
+    content: attr(data-placeholder);
+    color: hsl(var(--muted-foreground));
+    pointer-events: none;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .no-default-hover-elevate {}
+  .no-default-active-elevate {}
+
+  .toggle-elevate::before,
+  .toggle-elevate-2::before {
+    content: "";
+    pointer-events: none;
+    position: absolute;
+    inset: 0px;
+    border-radius: inherit;
+    z-index: -1;
+  }
+
+  .toggle-elevate.toggle-elevated::before {
+    background-color: var(--elevate-2);
+  }
+
+  .border.toggle-elevate::before {
+    inset: -1px;
+  }
+
+  .hover-elevate:not(.no-default-hover-elevate),
+  .active-elevate:not(.no-default-active-elevate),
+  .hover-elevate-2:not(.no-default-hover-elevate),
+  .active-elevate-2:not(.no-default-active-elevate) {
+    position: relative;
+    z-index: 0;
+  }
+
+  .hover-elevate:not(.no-default-hover-elevate)::after,
+  .active-elevate:not(.no-default-active-elevate)::after,
+  .hover-elevate-2:not(.no-default-hover-elevate)::after,
+  .active-elevate-2:not(.no-default-active-elevate)::after {
+    content: "";
+    pointer-events: none;
+    position: absolute;
+    inset: 0px;
+    border-radius: inherit;
+    z-index: 999;
+  }
+
+  .hover-elevate:hover:not(.no-default-hover-elevate)::after,
+  .active-elevate:active:not(.no-default-active-elevate)::after {
+    background-color: var(--elevate-1);
+  }
+
+  .hover-elevate-2:hover:not(.no-default-hover-elevate)::after,
+  .active-elevate-2:active:not(.no-default-active-elevate)::after {
+    background-color: var(--elevate-2);
+  }
+
+  .border.hover-elevate:not(.no-hover-interaction-elevate)::after,
+  .border.active-elevate:not(.no-active-interaction-elevate)::after,
+  .border.hover-elevate-2:not(.no-hover-interaction-elevate)::after,
+  .border.active-elevate-2:not(.no-active-interaction-elevate)::after,
+  .border.hover-elevate:not(.no-hover-interaction-elevate)::after {
+    inset: -1px;
+  }
+}
+
+/* Custom Farcaster SignInButton Styling */
+.farcaster-signin-wrapper {
+  width: 100%;
+}
+
+.farcaster-signin-wrapper button {
+  width: 100% !important;
+  background-color: #7c3aed !important;
+  color: white !important;
+  border: 2px solid #5b21b6 !important;
+  border-radius: 0.75rem !important;
+  padding: 0.75rem 1.5rem !important;
+  font-weight: 700 !important;
+  font-size: 1rem !important;
+  box-shadow: 3px 3px 0px 0px rgba(0,0,0,1) !important;
+  transition: all 0.15s ease !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.farcaster-signin-wrapper button:hover {
+  background-color: #6d28d9 !important;
+  transform: translate(-1px, -1px) !important;
+  box-shadow: 4px 4px 0px 0px rgba(0,0,0,1) !important;
+}
+
+.farcaster-signin-wrapper button:active {
+  transform: translate(1px, 1px) !important;
+  box-shadow: 2px 2px 0px 0px rgba(0,0,0,1) !important;
+}
