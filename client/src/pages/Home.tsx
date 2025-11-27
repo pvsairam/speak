@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
   Home, 
   PenTool, 
@@ -958,6 +958,11 @@ export default function App() {
 
   const displayConfessions = getFilteredConfessions();
   const userProfile: UserProfile = { walletAddress: address || null, farcaster: null };
+  
+  const profileStats = useMemo(() => ({
+    total: confessions.length,
+    anchored: confessions.filter(c => c.isAnchored).length
+  }), [confessions]);
 
   return (
     <div className="fixed inset-0 flex justify-center bg-gray-100 overflow-hidden">
@@ -1001,7 +1006,7 @@ export default function App() {
               walletAddress={address}
               handleConnect={handleConnect} 
               onLogout={handleLogout} 
-              stats={{ total: confessions.length, anchored: confessions.filter(c => c.isAnchored).length }} 
+              stats={profileStats} 
             />
           )}
         </main>
