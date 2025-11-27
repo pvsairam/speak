@@ -813,26 +813,21 @@ export default function App() {
     }
   }, [sendTxError, resetSendTx]);
 
-  const handleConnect = async () => {
-    try {
-      // Try connectors in order: first one that's available will be used
-      // In Farcaster frame, miniApp connector auto-connects
-      // In browser, injected/coinbase connectors will be available
-      for (const connector of connectors) {
-        try {
-          connect({ connector });
-          return;
-        } catch (e) {
-          console.log(`Connector ${connector.name} failed, trying next...`);
-        }
-      }
-      
-      if (connectors.length === 0) {
-        alert("No wallet found. Please install a wallet extension or use Warpcast.");
-      }
-    } catch (e: any) {
-      console.error("Connection failed:", e);
-      alert(e.message || "Failed to connect wallet.");
+  const handleConnect = () => {
+    if (connectors.length === 0) {
+      alert("No wallet found. Please install a wallet extension or use Warpcast.");
+      return;
+    }
+    
+    // Try injected connector first (MetaMask, etc), then coinbase, then farcaster miniApp
+    const injectedConnector = connectors.find(c => c.id === 'injected');
+    const coinbaseConnector = connectors.find(c => c.id === 'coinbaseWalletSDK');
+    const miniAppConnector = connectors.find(c => c.id === 'farcasterMiniApp');
+    
+    const preferredConnector = injectedConnector || coinbaseConnector || miniAppConnector || connectors[0];
+    
+    if (preferredConnector) {
+      connect({ connector: preferredConnector });
     }
   };
 
