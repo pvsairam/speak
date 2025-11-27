@@ -254,22 +254,20 @@ export const anchorOnChain = async (confessionText: string): Promise<string> => 
     await switchToCorrectNetwork();
     
     const chain = getActiveChain();
-    const client = createWalletClient({
+    const walletClient = createWalletClient({
       chain,
       transport: custom(provider)
     });
 
-    const [account] = await client.requestAddresses();
+    const [account] = await walletClient.requestAddresses();
 
-    // Get fee from contract - add a small buffer for price fluctuations
+    // Get exact fee from contract
     const { feeWei } = await getContractFee();
-    // Add 5% buffer to account for price changes between read and write
-    const feeWithBuffer = (feeWei * BigInt(105)) / BigInt(100);
     
-    console.log('Confession fee:', feeWei.toString(), 'wei');
-    console.log('Fee with buffer:', feeWithBuffer.toString(), 'wei');
+    console.log('Confession fee from contract:', feeWei.toString(), 'wei');
+    console.log('Fee in ETH:', Number(feeWei) / 1e18);
 
-    // Create a simple hash of the confession text
+    // Create a keccak256 hash of the confession text
     const hash = keccak256(toHex(confessionText));
     console.log('Confession hash:', hash);
 
@@ -279,24 +277,32 @@ export const anchorOnChain = async (confessionText: string): Promise<string> => 
       args: [hash]
     });
 
-    const hashTx = await client.sendTransaction({
+    console.log('Sending transaction to contract:', CONTRACT_ADDRESS);
+    console.log('Value:', feeWei.toString(), 'wei');
+
+    const hashTx = await walletClient.sendTransaction({
       account,
       to: CONTRACT_ADDRESS as `0x${string}`,
       data: data,
-      value: feeWithBuffer,
+      value: feeWei,
       chain
     });
 
+    console.log('Transaction hash:', hashTx);
     return hashTx;
 
   } catch (error: any) {
     console.error("Transaction failed:", error);
+    
     // Provide more helpful error messages
     if (error.message?.includes('insufficient funds')) {
       throw new Error('Insufficient ETH balance. You need at least $1.05 worth of ETH on Base.');
     }
-    if (error.message?.includes('user rejected')) {
+    if (error.message?.includes('user rejected') || error.message?.includes('User denied')) {
       throw new Error('Transaction was cancelled.');
+    }
+    if (error.message?.includes('Internal JSON-RPC error')) {
+      throw new Error('Transaction would fail. The contract may require exact fee or the hash may already exist.');
     }
     throw error;
   }
