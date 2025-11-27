@@ -2,14 +2,8 @@
   "version": 2,
   "buildCommand": "npm run build",
   "outputDirectory": "dist/public",
-  "redirects": [
-    {
-      "source": "/.well-known/farcaster.json",
-      "destination": "https://api.farcaster.xyz/miniapps/hosted-manifest/019ac6d5-60f3-5bf7-6bf2-dc4bbe5e8a20",
-      "statusCode": 307
-    }
-  ],
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/index.ts" }
+    { "source": "/api/(.*)", "destination": "/api/index.ts" },
+    { "source": "/.well-known/(.*)", "destination": "/api/index.ts" }
   ]
 }
