@@ -261,9 +261,17 @@ export const anchorOnChain = async (confessionText: string): Promise<string> => 
 
     const [account] = await client.requestAddresses();
 
+    // Get fee from contract - add a small buffer for price fluctuations
     const { feeWei } = await getContractFee();
+    // Add 5% buffer to account for price changes between read and write
+    const feeWithBuffer = (feeWei * BigInt(105)) / BigInt(100);
+    
+    console.log('Confession fee:', feeWei.toString(), 'wei');
+    console.log('Fee with buffer:', feeWithBuffer.toString(), 'wei');
 
+    // Create a simple hash of the confession text
     const hash = keccak256(toHex(confessionText));
+    console.log('Confession hash:', hash);
 
     const data = encodeFunctionData({
       abi: ABI,
@@ -275,14 +283,21 @@ export const anchorOnChain = async (confessionText: string): Promise<string> => 
       account,
       to: CONTRACT_ADDRESS as `0x${string}`,
       data: data,
-      value: feeWei,
+      value: feeWithBuffer,
       chain
     });
 
     return hashTx;
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Transaction failed:", error);
+    // Provide more helpful error messages
+    if (error.message?.includes('insufficient funds')) {
+      throw new Error('Insufficient ETH balance. You need at least $1.05 worth of ETH on Base.');
+    }
+    if (error.message?.includes('user rejected')) {
+      throw new Error('Transaction was cancelled.');
+    }
     throw error;
   }
 };
