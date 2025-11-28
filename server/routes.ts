@@ -131,7 +131,7 @@ export async function registerRoutes(
         primaryCategory: "social",
         buttonTitle: "Confess Anonymously",
         splashImageUrl: `${appUrl}/splash.png`,
-        splashBackgroundColor: "#c2e8e4",
+        splashBackgroundColor: "#fdfbf7",
         subtitle: "Anonymous crypto confessions on Base",
         description: "Share your crypto secrets anonymously. Confessions are anchored forever on the Base blockchain.",
         webhookUrl: `${appUrl}/api/webhook`,
