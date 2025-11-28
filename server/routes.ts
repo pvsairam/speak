@@ -126,12 +126,12 @@ export async function registerRoutes(
         iconUrl: `${appUrl}/icon.png`,
         homeUrl: `${appUrl}`,
         imageUrl: `${appUrl}/og-image.png`,
-        screenshotUrls: [],
+        screenshotUrls: [`${appUrl}/screenshot.png`],
         tags: ["base", "farcaster", "miniapp", "crypto", "confessions", "anonymous"],
         primaryCategory: "social",
         buttonTitle: "Confess Anonymously",
         splashImageUrl: `${appUrl}/splash.png`,
-        splashBackgroundColor: "#1a1a2e",
+        splashBackgroundColor: "#c2e8e4",
         subtitle: "Anonymous crypto confessions on Base",
         description: "Share your crypto secrets anonymously. Confessions are anchored forever on the Base blockchain.",
         webhookUrl: `${appUrl}/api/webhook`,
@@ -139,7 +139,7 @@ export async function registerRoutes(
         ogTitle: "Crypto Confessions - Speak.",
         ogDescription: "Share your crypto secrets anonymously. Anchored forever on Base.",
         ogImageUrl: `${appUrl}/og-image.png`,
-        heroImageUrl: `${appUrl}/og-image.png`,
+        heroImageUrl: `${appUrl}/hero.png`,
       },
     };
     
