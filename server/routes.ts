@@ -108,42 +108,44 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
   
-  // Farcaster Mini App Manifest - required for Farcaster deployment
-  // Account association will be filled in after deployment via Farcaster Developer Dashboard
+  // Mini App Manifest - works for BOTH Farcaster and Base
+  // Account association filled via Farcaster Developer Dashboard
+  // baseBuilder.ownerAddress set via BASE_BUILDER_ADDRESS env var
   app.get("/.well-known/farcaster.json", (req, res) => {
     const appUrl = process.env.APP_URL 
       || req.protocol + '://' + req.get('host');
     
-    const farcasterConfig = {
+    const miniAppConfig = {
       accountAssociation: {
         header: process.env.FARCASTER_HEADER || "",
         payload: process.env.FARCASTER_PAYLOAD || "",
         signature: process.env.FARCASTER_SIGNATURE || ""
       },
-      frame: {
+      baseBuilder: {
+        ownerAddress: process.env.BASE_BUILDER_ADDRESS || ""
+      },
+      miniapp: {
         version: "1",
         name: "Crypto Confessions",
+        homeUrl: appUrl,
         iconUrl: `${appUrl}/icon.png`,
-        homeUrl: `${appUrl}`,
-        imageUrl: `${appUrl}/og-image.png`,
-        screenshotUrls: [`${appUrl}/screenshot.png`],
-        tags: ["base", "farcaster", "miniapp", "crypto", "confessions", "anonymous"],
-        primaryCategory: "social",
-        buttonTitle: "Confess Anonymously",
         splashImageUrl: `${appUrl}/splash.png`,
         splashBackgroundColor: "#fdfbf7",
-        subtitle: "Anonymous crypto confessions on Base",
+        subtitle: "Anonymous crypto confessions",
         description: "Share your crypto secrets anonymously. Confessions are anchored forever on the Base blockchain.",
-        webhookUrl: `${appUrl}/api/webhook`,
+        screenshotUrls: [`${appUrl}/screenshot.png`],
+        primaryCategory: "social",
+        tags: ["crypto", "confessions", "anonymous", "base", "social"],
+        heroImageUrl: `${appUrl}/hero.png`,
         tagline: "Speak your crypto truth",
         ogTitle: "Crypto Confessions - Speak.",
         ogDescription: "Share your crypto secrets anonymously. Anchored forever on Base.",
         ogImageUrl: `${appUrl}/og-image.png`,
-        heroImageUrl: `${appUrl}/hero.png`,
+        webhookUrl: `${appUrl}/api/webhook`,
       },
     };
     
-    res.json(farcasterConfig);
+    res.json(miniAppConfig);
   });
 
   app.get("/api/confessions", async (req, res) => {
