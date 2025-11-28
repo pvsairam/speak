@@ -853,24 +853,70 @@ export default function App() {
     setPendingCategory(selectedCategory);
 
     try {
-      const { feeWei } = await getContractFee();
-      const hash = keccak256(toHex(inputText));
-      
-      const data = encodeFunctionData({
-        abi: ABI,
-        functionName: 'storeConfessionHash',
-        args: [hash]
+      // First, try to use the anonymous relayer
+      const relayerResponse = await fetch('/api/relayer/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          confessionText: inputText,
+          category: selectedCategory,
+        }),
       });
 
-      sendTransaction({
-        to: CONTRACT_ADDRESS as `0x${string}`,
-        data: data,
-        value: feeWei,
-      });
+      const relayerData = await relayerResponse.json();
+      
+      if (relayerResponse.ok && relayerData.success) {
+        // Relayer submitted successfully - fully anonymous!
+        console.log("Anonymous confession submitted via relayer:", relayerData.txHash);
+        
+        if (relayerData.confession) {
+          setConfessions(prev => [{
+            ...relayerData.confession,
+            displayText: relayerData.confession.displayText || relayerData.confession.originalText,
+            timestamp: typeof relayerData.confession.timestamp === 'number' && relayerData.confession.timestamp < 10000000000 
+              ? relayerData.confession.timestamp * 1000 
+              : new Date(relayerData.confession.timestamp).getTime(),
+            userVote: null,
+          }, ...prev]);
+        }
+        
+        localStorage.removeItem('confession_draft');
+        setInputText('');
+        setSelectedCategory('Other');
+        setPendingConfessionText(null);
+        setPendingCategory('Other');
+        setIsProcessing(false);
+        setView(AppView.HOME);
+        return;
+      }
+      
+      // If relayer is not available, fall back to direct submission
+      if (relayerData.fallback) {
+        console.log("Relayer unavailable, falling back to direct submission:", relayerData.error);
+        
+        const { feeWei } = await getContractFee();
+        const hash = keccak256(toHex(inputText));
+        
+        const data = encodeFunctionData({
+          abi: ABI,
+          functionName: 'storeConfessionHash',
+          args: [hash]
+        });
+
+        sendTransaction({
+          to: CONTRACT_ADDRESS as `0x${string}`,
+          data: data,
+          value: feeWei,
+        });
+        return;
+      }
+      
+      // Relayer returned an error without fallback
+      throw new Error(relayerData.error || "Failed to submit confession");
 
     } catch (error: any) {
-      console.error("Failed to prepare transaction:", error);
-      alert(error.message || "Failed to prepare transaction.");
+      console.error("Failed to submit confession:", error);
+      alert(error.message || "Failed to submit confession.");
       setIsProcessing(false);
       setPendingConfessionText(null);
     }
