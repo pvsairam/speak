@@ -201,9 +201,11 @@ export const getContractFee = async (): Promise<{ feeWei: bigint; feeUsd: number
       ethPriceRaw = Number(priceResult.value);
     }
 
+    // NOTE: Contract has a bug where feeUsdCents is actually in dollars, not cents
+    // So feeUsdCents = 1 means $1, not $0.01
     const result = {
       feeWei,
-      feeUsd: feeUsdCents / 100,
+      feeUsd: feeUsdCents, // Contract bug: value is already in dollars
       ethPrice: ethPriceRaw / 1e8,
     };
 
