@@ -45,16 +45,15 @@
     <div class="relative w-[1200px] h-[630px] flex items-center justify-center overflow-hidden">
         
         <!-- Background Decor (in bleed area) -->
-        <div class="absolute top-0 right-0 w-[700px] h-[700px] bg-teal rounded-full mix-blend-multiply filter blur-3xl opacity-20 transform translate-x-1/4 -translate-y-1/4"></div>
-        <div class="absolute bottom-0 left-0 w-[500px] h-[500px] bg-gray-300 rounded-full mix-blend-multiply filter blur-3xl opacity-20 transform -translate-x-1/4 translate-y-1/4"></div>
+        <div class="absolute top-0 right-0 w-[600px] h-[600px] bg-teal rounded-full mix-blend-multiply filter blur-3xl opacity-15 transform translate-x-1/4 -translate-y-1/4"></div>
 
-        <!-- SAFE ZONE: 960x480 centered - all important content here -->
-        <div class="relative z-10 w-[960px] h-[480px] flex items-center justify-between">
+        <!-- SAFE ZONE: Even tighter 850x450 centered - very safe margins -->
+        <div class="relative z-10 w-[850px] h-[450px] flex items-center justify-center gap-12">
             
             <!-- Left Side: Branding -->
-            <div class="flex-shrink-0 max-w-[380px]">
+            <div class="flex-shrink-0 w-[320px]">
                 <!-- Logo -->
-                <div class="w-16 h-16 mb-3 relative">
+                <div class="w-14 h-14 mb-2 relative">
                     <svg viewBox="0 0 100 100" fill="none" stroke="black" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full">
                         <path d="M50 95 L50 65 L20 20 C15 15 15 5 25 5 L75 5 C85 5 85 15 80 20 L50 65" fill="white" />
                         <path d="M50 65 L50 35" />
@@ -62,53 +61,53 @@
                     </svg>
                 </div>
                 
-                <h1 class="text-7xl font-display font-black tracking-tighter text-black leading-none mb-3">
+                <h1 class="text-6xl font-display font-black tracking-tighter text-black leading-none mb-2">
                   Speak.
                 </h1>
-                <p class="text-lg font-mono text-gray-500 tracking-widest uppercase border-l-4 border-teal pl-3 mb-5">
+                <p class="text-base font-mono text-gray-500 tracking-widest uppercase border-l-4 border-teal pl-3 mb-4">
                   Anonymous Web3 Confessions
                 </p>
-                <div class="flex gap-3">
-                    <span class="px-3 py-1.5 border-2 border-black rounded-lg font-bold text-sm bg-white shadow-sketch">ON BASE</span>
-                    <span class="px-3 py-1.5 border-2 border-black rounded-lg font-bold text-sm bg-white shadow-sketch">FARCASTER</span>
+                <div class="flex gap-2">
+                    <span class="px-2.5 py-1 border-2 border-black rounded-lg font-bold text-xs bg-white shadow-sketch">ON BASE</span>
+                    <span class="px-2.5 py-1 border-2 border-black rounded-lg font-bold text-xs bg-white shadow-sketch">FARCASTER</span>
                 </div>
             </div>
 
-            <!-- Right Side: Stacked Cards -->
-            <div class="relative w-[420px] h-[340px] flex-shrink-0">
+            <!-- Right Side: Stacked Cards (smaller, tighter) -->
+            <div class="relative w-[340px] h-[300px] flex-shrink-0">
                 
                 <!-- Card 1 (Back) -->
-                <div class="absolute top-0 right-0 w-[340px] bg-white border-2 border-black rounded-xl p-5 shadow-sketch transform rotate-5 scale-95 opacity-60">
+                <div class="absolute top-0 left-4 w-[280px] bg-white border-2 border-black rounded-xl p-4 shadow-sketch transform rotate-4 scale-95 opacity-50">
                     <div class="flex justify-between mb-2">
                         <span class="px-2 py-0.5 bg-gray-200 border-2 border-black rounded-full text-xs font-bold">FOMO</span>
                     </div>
-                    <div class="h-3 bg-gray-100 rounded w-3/4 mb-2"></div>
-                    <div class="h-3 bg-gray-100 rounded w-full mb-2"></div>
-                    <div class="h-3 bg-gray-100 rounded w-1/2"></div>
+                    <div class="h-2.5 bg-gray-100 rounded w-3/4 mb-1.5"></div>
+                    <div class="h-2.5 bg-gray-100 rounded w-full mb-1.5"></div>
+                    <div class="h-2.5 bg-gray-100 rounded w-1/2"></div>
                 </div>
 
                 <!-- Card 2 (Middle) -->
-                <div class="absolute top-8 right-3 w-[340px] bg-white border-2 border-black rounded-xl p-5 shadow-sketch transform -rotate-2 scale-95">
+                <div class="absolute top-6 left-6 w-[280px] bg-white border-2 border-black rounded-xl p-4 shadow-sketch transform -rotate-1 scale-95">
                     <div class="flex justify-between mb-2">
                         <span class="px-2 py-0.5 bg-teal-dim border-2 border-black rounded-full text-xs font-bold">REGRET</span>
                     </div>
-                    <p class="font-sans text-sm leading-relaxed text-ink">
+                    <p class="font-sans text-xs leading-relaxed text-ink">
                         I traded my future for a pixelated stone...
                     </p>
                 </div>
 
                 <!-- Card 3 (Front/Hero) -->
-                <div class="absolute top-16 right-6 w-[340px] bg-white border-2 border-black rounded-xl p-5 shadow-sketch-lg transform -rotate-3">
-                     <div class="flex justify-between items-start mb-2">
+                <div class="absolute top-14 left-8 w-[280px] bg-white border-2 border-black rounded-xl p-4 shadow-sketch-lg transform -rotate-2">
+                     <div class="flex justify-between items-start mb-1.5">
                         <span class="px-2 py-0.5 bg-teal border-2 border-black rounded-full text-xs font-bold">GREED</span>
                         <span class="text-xs font-mono text-gray-400">08:24 PM</span>
                      </div>
-                     <p class="font-sans text-base font-medium leading-relaxed text-ink mb-4">
+                     <p class="font-sans text-sm font-medium leading-relaxed text-ink mb-3">
                        "Fortune smiled like a maniac, then laughed as the digits dissolved into dust."
                      </p>
-                     <div class="flex justify-between items-center border-t-2 border-gray-100 pt-3">
-                         <div class="w-6 h-6 rounded border-2 border-black bg-black text-white flex items-center justify-center text-xs">♥42</div>
-                         <div class="px-2 py-0.5 bg-cyan text-white text-xs font-bold border-2 border-black rounded">
+                     <div class="flex justify-between items-center border-t-2 border-gray-100 pt-2">
+                         <div class="w-5 h-5 rounded border-2 border-black bg-black text-white flex items-center justify-center text-[10px]">♥42</div>
+                         <div class="px-2 py-0.5 bg-cyan text-white text-[10px] font-bold border-2 border-black rounded">
                              ✓ Anchored
                          </div>
                      </div>
