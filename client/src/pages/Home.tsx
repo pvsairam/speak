@@ -196,18 +196,19 @@ const DetailView = ({ confession, onBack, handleVote, handleAnchor, userProfile 
 
   if (!confession) return <div>Confession not found</div>;
 
-  const shareText = encodeURIComponent(`"${confession.displayText}" #CryptoConfessions`);
-  const shareUrl = encodeURIComponent(window.location.href);
+  // Share promotes the app, not the confession content (to keep it anonymous)
+  const shareText = encodeURIComponent(`I just posted an anonymous confession on Crypto Confessions! Share your crypto secrets without revealing your identity. #CryptoConfessions #Base`);
+  const appUrl = encodeURIComponent(window.location.origin);
 
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(`${window.location.origin}?id=${confession.id}`);
+    navigator.clipboard.writeText(window.location.origin);
     setLinkCopied(true);
     setTimeout(() => setLinkCopied(false), 2000);
     setShowShareMenu(false);
   };
 
-  const xShareLink = `https://twitter.com/intent/tweet?text=${shareText}&url=${shareUrl}`;
-  const warpcastShareLink = `https://warpcast.com/~/compose?text=${shareText}&embeds[]=${shareUrl}`;
+  const xShareLink = `https://twitter.com/intent/tweet?text=${shareText}&url=${appUrl}`;
+  const warpcastShareLink = `https://warpcast.com/~/compose?text=${shareText}&embeds[]=${appUrl}`;
 
   return (
     <div className="min-h-full flex flex-col animate-fade-in relative">
