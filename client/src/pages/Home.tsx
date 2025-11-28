@@ -131,7 +131,7 @@ const HomeView = ({ confessions, openConfessionDetail, handleVote, handleAnchor,
      </div>
 
     <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar animate-fade-in" style={{animationDelay: '100ms'}}>
-      {['All', 'Regret', 'FOMO', 'Greed', 'Wisdom', 'Rug'].map(tag => (
+      {['All', 'Regret', 'FOMO', 'Greed', 'Wisdom', 'Rug', 'Airdrop', 'Scam', 'Degen'].map(tag => (
         <button key={tag} className="flex-shrink-0 px-4 py-1 border-2 border-black rounded-md font-bold text-sm bg-white active:bg-black active:text-white transition-colors">
           #{tag}
         </button>
@@ -354,7 +354,7 @@ const DetailView = ({ confession, onBack, handleVote, handleAnchor, userProfile 
   );
 };
 
-const CATEGORIES: ConfessionCategory[] = ['Regret', 'FOMO', 'Greed', 'Wisdom', 'Rug', 'Other'];
+const CATEGORIES: ConfessionCategory[] = ['Regret', 'FOMO', 'Greed', 'Wisdom', 'Rug', 'Airdrop', 'Scam', 'Degen', 'Other'];
 
 interface SubmitViewProps {
   inputText: string;

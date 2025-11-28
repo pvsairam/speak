@@ -22,7 +22,7 @@ export const insertUserSchema = createInsertSchema(users).pick({
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 
-export const confessionCategories = ['Greed', 'Regret', 'FOMO', 'Rug', 'Wisdom', 'Other'] as const;
+export const confessionCategories = ['Regret', 'FOMO', 'Greed', 'Wisdom', 'Rug', 'Airdrop', 'Scam', 'Degen', 'Other'] as const;
 export type ConfessionCategory = typeof confessionCategories[number];
 
 export const confessions = pgTable("confessions", {
