@@ -379,16 +379,17 @@ const DetailView = ({ confession, onBack, handleVote, handleAnchor, userProfile 
                        <span className="text-gray-400">Off-Chain</span>
                    )}
                </div>
-               {confession.isAnchored && (
+               {confession.isAnchored && confession.txHash && (
                    <div className="flex justify-between items-center pt-2 border-t border-dashed border-gray-300">
-                       <span>Tx Hash:</span>
+                       <span>Proof:</span>
                        <a 
                           href={`https://basescan.org/tx/${confession.txHash}`} 
                           target="_blank" 
                           rel="noreferrer" 
-                          className="flex items-center gap-1 text-blue-600 underline truncate max-w-[150px]"
+                          className="flex items-center gap-1 text-blue-600 underline"
+                          data-testid="link-tx-proof"
                         >
-                           {confession.txHash?.slice(0, 10)}... <ExternalLink size={12} />
+                           Verify on Base <ExternalLink size={12} />
                        </a>
                    </div>
                )}
