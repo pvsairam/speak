@@ -25,21 +25,10 @@ import { SketchButton, SketchCard, SketchInput, Badge, SketchVoteButton } from '
 import { isAnchoringEnabled, getConfessionFeeDisplay, getContractFee, getActiveChain } from '../services/web3Service';
 import { AppView, Confession, ConfessionCategory, UserProfile } from '../types';
 
-import { useAccount, useConnect, useDisconnect, useSendTransaction, useWaitForTransactionReceipt } from 'wagmi';
-import { keccak256, toHex, encodeFunctionData } from 'viem';
+import { useAccount, useConnect, useDisconnect } from 'wagmi';
 import sdk from '@farcaster/frame-sdk';
 
 const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS || '0x0000000000000000000000000000000000000000';
-
-const ABI = [
-  {
-    inputs: [{ type: "string", name: "confessionHash" }],
-    name: "storeConfessionHash",
-    outputs: [],
-    stateMutability: "payable",
-    type: "function"
-  },
-] as const;
 
 const FarcasterIcon = ({ size = 20, className = "" }: { size?: number; className?: string }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
@@ -86,35 +75,7 @@ const fetchConfessions = async (): Promise<Confession[]> => {
   }
 };
 
-const createConfession = async (data: {
-  originalText: string;
-  displayText: string;
-  category: ConfessionCategory;
-  sentimentScore: number;
-  isAnchored?: boolean;
-  txHash?: string;
-}): Promise<Confession | null> => {
-  try {
-    const response = await fetch('/api/confessions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    if (!response.ok) throw new Error('Failed to create');
-    const result = await response.json();
-    return {
-      ...result,
-      displayText: result.processedText || result.displayText || result.originalText,
-      timestamp: typeof result.timestamp === 'number' && result.timestamp < 10000000000 
-        ? result.timestamp * 1000 
-        : new Date(result.timestamp).getTime(),
-      userVote: null,
-    };
-  } catch (error) {
-    console.error('Error creating confession:', error);
-    return null;
-  }
-};
+// NOTE: Direct confession creation is disabled - use /api/relayer/submit for anonymous submissions
 
 const voteOnConfession = async (id: string, voteType: 'like' | 'dislike'): Promise<Confession | null> => {
   try {
@@ -139,20 +100,7 @@ const voteOnConfession = async (id: string, voteType: 'like' | 'dislike'): Promi
   }
 };
 
-const anchorConfessionOnChain = async (id: string, txHash: string): Promise<Confession | null> => {
-  try {
-    const response = await fetch(`/api/confessions/${id}/anchor`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ txHash }),
-    });
-    if (!response.ok) throw new Error('Failed to anchor');
-    return await response.json();
-  } catch (error) {
-    console.error('Error anchoring:', error);
-    return null;
-  }
-};
+// NOTE: Direct anchoring is disabled - use /api/relayer/submit for anonymous anchoring
 
 const NavBtn = ({ icon: Icon, active, onClick, label, disabled }: any) => (
   <button 
@@ -751,19 +699,6 @@ export default function App() {
   const { address, isConnected } = useAccount();
   const { connect, connectors } = useConnect();
   const { disconnect } = useDisconnect();
-  
-  const { 
-    data: txHash, 
-    sendTransaction,
-    isPending: isSendingTx,
-    error: sendTxError,
-    reset: resetSendTx
-  } = useSendTransaction();
-  
-  const { 
-    isSuccess: isTxConfirmed,
-    isLoading: isWaitingForTx 
-  } = useWaitForTransactionReceipt({ hash: txHash });
 
   useEffect(() => {
     const loadConfessions = async () => {
@@ -774,45 +709,6 @@ export default function App() {
     };
     loadConfessions();
   }, []);
-
-  useEffect(() => {
-    if (isTxConfirmed && txHash && pendingConfessionText) {
-      const saveConfession = async () => {
-        const newConfession = await createConfession({
-          originalText: pendingConfessionText,
-          displayText: pendingConfessionText,
-          category: pendingCategory,
-          sentimentScore: 50,
-          isAnchored: true,
-          txHash: txHash,
-        });
-
-        if (newConfession) {
-          setConfessions(prev => [newConfession, ...prev]);
-        }
-        
-        localStorage.removeItem('confession_draft');
-        setInputText('');
-        setSelectedCategory('Other');
-        setPendingConfessionText(null);
-        setPendingCategory('Other');
-        setIsProcessing(false);
-        resetSendTx();
-        setView(AppView.HOME);
-      };
-      saveConfession();
-    }
-  }, [isTxConfirmed, txHash, pendingConfessionText, pendingCategory, resetSendTx]);
-
-  useEffect(() => {
-    if (sendTxError) {
-      console.error("Transaction failed:", sendTxError);
-      alert(sendTxError.message || "Transaction failed or was rejected.");
-      setIsProcessing(false);
-      setPendingConfessionText(null);
-      resetSendTx();
-    }
-  }, [sendTxError, resetSendTx]);
 
   const handleConnect = () => {
     if (connectors.length === 0) {
@@ -891,28 +787,19 @@ export default function App() {
         return;
       }
       
-      // If relayer is not available, fall back to direct submission
+      // Relayer is not available - show clear error message
+      // We do NOT fall back to direct submission because it would expose user wallets
       if (relayerData.fallback) {
-        console.log("Relayer unavailable, falling back to direct submission:", relayerData.error);
-        
-        const { feeWei } = await getContractFee();
-        const hash = keccak256(toHex(inputText));
-        
-        const data = encodeFunctionData({
-          abi: ABI,
-          functionName: 'storeConfessionHash',
-          args: [hash]
-        });
-
-        sendTransaction({
-          to: CONTRACT_ADDRESS as `0x${string}`,
-          data: data,
-          value: feeWei,
-        });
-        return;
+        console.log("Relayer unavailable:", relayerData.error);
+        throw new Error("Anonymous submission service is temporarily unavailable. Your confession was NOT posted to protect your privacy. Please try again later.");
       }
       
-      // Relayer returned an error without fallback
+      // Rate limit or other error
+      if (relayerData.retryAfter) {
+        throw new Error("Too many submissions. Please wait an hour before trying again.");
+      }
+      
+      // Other error
       throw new Error(relayerData.error || "Failed to submit confession");
 
     } catch (error: any) {
@@ -932,27 +819,39 @@ export default function App() {
     }
     
     const targetConfession = confessions.find(c => c.id === id);
-    if (!targetConfession) return;
+    if (!targetConfession || targetConfession.isAnchored) return;
 
+    // Use the relayer to anchor existing confessions anonymously
     try {
-      const { feeWei } = await getContractFee();
-      const hash = keccak256(toHex(targetConfession.displayText));
+      setIsProcessing(true);
       
-      const data = encodeFunctionData({
-        abi: ABI,
-        functionName: 'storeConfessionHash',
-        args: [hash]
+      const relayerResponse = await fetch('/api/relayer/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          confessionText: targetConfession.displayText,
+          category: targetConfession.category,
+        }),
       });
 
-      sendTransaction({
-        to: CONTRACT_ADDRESS as `0x${string}`,
-        data: data,
-        value: feeWei,
-      });
-
+      const relayerData = await relayerResponse.json();
+      
+      if (relayerResponse.ok && relayerData.success) {
+        // Update the confession in state
+        setConfessions(prev => prev.map(c => 
+          c.id === id ? { ...c, isAnchored: true, txHash: relayerData.txHash } : c
+        ));
+        alert("Confession anchored anonymously!");
+      } else if (relayerData.retryAfter) {
+        alert("Too many submissions. Please wait an hour before trying again.");
+      } else {
+        alert(relayerData.error || "Anonymous anchoring is temporarily unavailable. Please try again later.");
+      }
     } catch (e) {
       console.error("Failed to anchor", e);
-      alert("Transaction failed or was rejected.");
+      alert("Failed to anchor confession. Please try again later.");
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -1036,7 +935,7 @@ export default function App() {
               setInputText={setInputText}
               selectedCategory={selectedCategory}
               setSelectedCategory={setSelectedCategory}
-              isProcessing={isProcessing || isSendingTx || isWaitingForTx}
+              isProcessing={isProcessing}
               handleSubmit={handleSubmit}
               isConnected={isConnected}
               onConnect={handleConnect}

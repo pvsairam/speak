@@ -58,20 +58,34 @@ const getRelayerAddress = (): string | null => {
   return account ? account.address : null;
 };
 
-// Pending payments tracking (payment tx hash -> confession data)
-const pendingPayments = new Map<string, { 
-  confessionText: string; 
-  category: string;
-  timestamp: number;
-  userAddress: string;
-}>();
+// Rate limiting for relayer submissions (prevent spam/abuse)
+// Tracks submissions by IP to prevent abuse while maintaining anonymity
+const submissionRateLimit = new Map<string, { count: number; resetAt: number }>();
+const MAX_SUBMISSIONS_PER_HOUR = 10;
 
-// Cleanup old pending payments (older than 30 minutes)
-const cleanupPendingPayments = () => {
-  const thirtyMinutesAgo = Date.now() - 30 * 60 * 1000;
-  Array.from(pendingPayments.entries()).forEach(([key, value]) => {
-    if (value.timestamp < thirtyMinutesAgo) {
-      pendingPayments.delete(key);
+const checkRateLimit = (ip: string): boolean => {
+  const now = Date.now();
+  const record = submissionRateLimit.get(ip);
+  
+  if (!record || record.resetAt < now) {
+    submissionRateLimit.set(ip, { count: 1, resetAt: now + 60 * 60 * 1000 });
+    return true;
+  }
+  
+  if (record.count >= MAX_SUBMISSIONS_PER_HOUR) {
+    return false;
+  }
+  
+  record.count++;
+  return true;
+};
+
+// Cleanup old rate limit entries
+const cleanupRateLimits = () => {
+  const now = Date.now();
+  Array.from(submissionRateLimit.entries()).forEach(([key, value]) => {
+    if (value.resetAt < now) {
+      submissionRateLimit.delete(key);
     }
   });
 };
@@ -190,28 +204,16 @@ export async function registerRoutes(
     }
   });
 
-  const createConfessionSchema = z.object({
-    originalText: z.string().min(1).max(1000),
-    displayText: z.string().min(1).max(1000),
-    category: z.enum(confessionCategories),
-    sentimentScore: z.number().min(0).max(100).default(50),
-    isAnchored: z.boolean().default(false),
-    txHash: z.string().optional().nullable(),
-    authorId: z.string().optional().nullable(),
-  });
-
+  // NOTE: Direct confession creation is DISABLED to enforce anonymous relayer flow
+  // All confessions must go through /api/relayer/submit to ensure privacy
+  // This endpoint is kept for internal use only (called from relayer submit)
   app.post("/api/confessions", async (req, res) => {
-    try {
-      const parsed = createConfessionSchema.parse(req.body);
-      const confession = await storage.createConfession(parsed);
-      res.status(201).json(confession);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Invalid confession data", details: error.errors });
-      }
-      console.error("Error creating confession:", error);
-      res.status(500).json({ error: "Failed to create confession" });
-    }
+    // Block all external access - confessions must go through the relayer
+    // Only internal requests from the relayer endpoint should create confessions
+    return res.status(403).json({ 
+      error: "Direct confession creation is disabled. Use the anonymous submission service.",
+      hint: "Submit confessions via the UI to protect your privacy."
+    });
   });
 
   const voteSchema = z.object({
@@ -268,23 +270,14 @@ export async function registerRoutes(
     }
   });
 
+  // NOTE: Direct anchoring is DISABLED to enforce anonymous relayer flow
+  // All anchoring must go through /api/relayer/submit to ensure privacy
   app.post("/api/confessions/:id/anchor", async (req, res) => {
-    try {
-      const { txHash } = req.body;
-      if (!txHash) {
-        return res.status(400).json({ error: "Transaction hash required" });
-      }
-      
-      const updated = await storage.updateConfessionAnchored(req.params.id, txHash);
-      if (!updated) {
-        return res.status(404).json({ error: "Confession not found" });
-      }
-      
-      res.json(updated);
-    } catch (error) {
-      console.error("Error anchoring confession:", error);
-      res.status(500).json({ error: "Failed to anchor confession" });
-    }
+    // Block all external access - anchoring must go through the relayer
+    return res.status(403).json({ 
+      error: "Direct anchoring is disabled. Use the anonymous submission service.",
+      hint: "Anchor confessions via the UI to protect your privacy."
+    });
   });
 
   app.post("/api/admin/password", async (req, res) => {
@@ -466,7 +459,7 @@ export async function registerRoutes(
   // Get relayer info (wallet address and status)
   app.get("/api/relayer/info", async (req, res) => {
     try {
-      cleanupPendingPayments();
+      cleanupRateLimits();
       
       const relayerAddress = getRelayerAddress();
       const isEnabled = !!relayerAddress && !!CONTRACT_ADDRESS;
@@ -515,17 +508,27 @@ export async function registerRoutes(
   });
 
   // Submit confession via relayer (anonymous)
+  // No user payment required - relayer covers costs from its funded balance
+  // Rate limited to prevent abuse while maintaining full anonymity
   const relayerSubmitSchema = z.object({
     confessionText: z.string().min(1).max(1000),
     category: z.enum(confessionCategories),
-    paymentTxHash: z.string().optional(), // Optional - if user paid to relayer wallet
   });
 
   app.post("/api/relayer/submit", async (req, res) => {
     try {
-      cleanupPendingPayments();
+      cleanupRateLimits();
       
-      const { confessionText, category, paymentTxHash } = relayerSubmitSchema.parse(req.body);
+      // Rate limit by IP to prevent abuse (doesn't compromise anonymity)
+      const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
+      if (!checkRateLimit(clientIp)) {
+        return res.status(429).json({ 
+          error: "Rate limit exceeded. Please try again later.",
+          retryAfter: 3600 // 1 hour
+        });
+      }
+      
+      const { confessionText, category } = relayerSubmitSchema.parse(req.body);
       
       const walletClient = getWalletClient();
       const publicClient = getPublicClient();
