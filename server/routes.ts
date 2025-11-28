@@ -3,8 +3,78 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertConfessionSchema, confessionCategories, type ConfessionCategory } from "@shared/schema";
 import { z } from "zod";
-import { verifyMessage } from "viem";
+import { verifyMessage, createPublicClient, createWalletClient, http, encodeFunctionData, keccak256, toHex } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
+import { base } from "viem/chains";
 import crypto from "crypto";
+
+// Relayer configuration
+const CONTRACT_ADDRESS = process.env.VITE_CONTRACT_ADDRESS as `0x${string}` | undefined;
+const RELAYER_PRIVATE_KEY = process.env.RELAYER_PRIVATE_KEY as `0x${string}` | undefined;
+
+const CONTRACT_ABI = [
+  {
+    inputs: [{ type: "string", name: "confessionHash" }],
+    name: "storeConfessionHash",
+    outputs: [],
+    stateMutability: "payable",
+    type: "function"
+  },
+  {
+    inputs: [],
+    name: "getFeeInWei",
+    outputs: [{ type: "uint256" }],
+    stateMutability: "view",
+    type: "function"
+  },
+] as const;
+
+// Create relayer wallet and clients
+const getRelayerAccount = () => {
+  if (!RELAYER_PRIVATE_KEY) return null;
+  return privateKeyToAccount(RELAYER_PRIVATE_KEY);
+};
+
+const getPublicClient = () => {
+  return createPublicClient({
+    chain: base,
+    transport: http('https://mainnet.base.org'),
+  });
+};
+
+const getWalletClient = () => {
+  const account = getRelayerAccount();
+  if (!account) return null;
+  return createWalletClient({
+    account,
+    chain: base,
+    transport: http('https://mainnet.base.org'),
+  });
+};
+
+// Get relayer wallet address
+const getRelayerAddress = (): string | null => {
+  const account = getRelayerAccount();
+  return account ? account.address : null;
+};
+
+// Pending payments tracking (payment tx hash -> confession data)
+const pendingPayments = new Map<string, { 
+  confessionText: string; 
+  category: string;
+  timestamp: number;
+  userAddress: string;
+}>();
+
+// Cleanup old pending payments (older than 30 minutes)
+const cleanupPendingPayments = () => {
+  const thirtyMinutesAgo = Date.now() - 30 * 60 * 1000;
+  Array.from(pendingPayments.entries()).forEach(([key, value]) => {
+    if (value.timestamp < thirtyMinutesAgo) {
+      pendingPayments.delete(key);
+    }
+  });
+};
 
 const adminSessions = new Map<string, { walletAddress: string; expiresAt: number }>();
 const adminNonces = new Map<string, { nonce: string; expiresAt: number }>();
@@ -387,6 +457,178 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching trends:", error);
       res.status(500).json({ error: "Failed to fetch trends" });
+    }
+  });
+
+  // ==================== RELAYER ENDPOINTS ====================
+  // These enable anonymous confessions by having the server submit on-chain
+
+  // Get relayer info (wallet address and status)
+  app.get("/api/relayer/info", async (req, res) => {
+    try {
+      cleanupPendingPayments();
+      
+      const relayerAddress = getRelayerAddress();
+      const isEnabled = !!relayerAddress && !!CONTRACT_ADDRESS;
+      
+      if (!isEnabled) {
+        return res.json({
+          enabled: false,
+          message: "Relayer not configured. Direct wallet submissions will be used."
+        });
+      }
+
+      // Get required fee from contract
+      const publicClient = getPublicClient();
+      let feeWei = BigInt(330000000000000); // ~$1 default
+      
+      try {
+        const result = await publicClient.readContract({
+          address: CONTRACT_ADDRESS,
+          abi: CONTRACT_ABI,
+          functionName: 'getFeeInWei',
+        });
+        feeWei = result;
+      } catch (e) {
+        console.log("Using default fee");
+      }
+
+      // Get relayer wallet balance
+      let balance = BigInt(0);
+      try {
+        balance = await publicClient.getBalance({ address: relayerAddress as `0x${string}` });
+      } catch (e) {
+        console.log("Could not get balance");
+      }
+
+      res.json({
+        enabled: true,
+        relayerAddress,
+        feeWei: feeWei.toString(),
+        balanceWei: balance.toString(),
+        hasEnoughBalance: balance > feeWei * BigInt(2), // At least 2x fee for safety
+      });
+    } catch (error) {
+      console.error("Error getting relayer info:", error);
+      res.status(500).json({ error: "Failed to get relayer info" });
+    }
+  });
+
+  // Submit confession via relayer (anonymous)
+  const relayerSubmitSchema = z.object({
+    confessionText: z.string().min(1).max(1000),
+    category: z.enum(confessionCategories),
+    paymentTxHash: z.string().optional(), // Optional - if user paid to relayer wallet
+  });
+
+  app.post("/api/relayer/submit", async (req, res) => {
+    try {
+      cleanupPendingPayments();
+      
+      const { confessionText, category, paymentTxHash } = relayerSubmitSchema.parse(req.body);
+      
+      const walletClient = getWalletClient();
+      const publicClient = getPublicClient();
+      
+      if (!walletClient || !CONTRACT_ADDRESS) {
+        return res.status(503).json({ 
+          error: "Relayer not available",
+          fallback: true // Frontend should fall back to direct submission
+        });
+      }
+
+      // Get required fee
+      let feeWei = BigInt(330000000000000);
+      try {
+        const result = await publicClient.readContract({
+          address: CONTRACT_ADDRESS,
+          abi: CONTRACT_ABI,
+          functionName: 'getFeeInWei',
+        });
+        feeWei = result;
+      } catch (e) {
+        console.log("Using default fee for relayer submission");
+      }
+
+      // Check relayer has enough balance
+      const relayerAddress = getRelayerAddress();
+      const balance = await publicClient.getBalance({ address: relayerAddress as `0x${string}` });
+      
+      if (balance < feeWei + BigInt(100000000000000)) { // Fee + gas buffer
+        return res.status(503).json({ 
+          error: "Relayer wallet needs funding",
+          relayerAddress,
+          needed: (feeWei + BigInt(100000000000000)).toString(),
+          balance: balance.toString(),
+          fallback: true
+        });
+      }
+
+      // Create confession hash
+      const confessionHash = keccak256(toHex(confessionText));
+      console.log("Relayer submitting confession hash:", confessionHash);
+
+      // Encode function data
+      const data = encodeFunctionData({
+        abi: CONTRACT_ABI,
+        functionName: 'storeConfessionHash',
+        args: [confessionHash]
+      });
+
+      // Submit transaction from relayer wallet
+      const txHash = await walletClient.sendTransaction({
+        to: CONTRACT_ADDRESS,
+        data,
+        value: feeWei,
+      });
+
+      console.log("Relayer transaction submitted:", txHash);
+
+      // Wait for confirmation
+      const receipt = await publicClient.waitForTransactionReceipt({ 
+        hash: txHash,
+        timeout: 60000 // 60 second timeout
+      });
+
+      if (receipt.status === 'reverted') {
+        throw new Error("Transaction reverted");
+      }
+
+      // Create confession in database (without user's tx hash - use relayer's)
+      const confession = await storage.createConfession({
+        originalText: confessionText,
+        displayText: confessionText,
+        category: category as ConfessionCategory,
+        sentimentScore: 50,
+        isAnchored: true,
+        txHash: txHash, // Relayer's tx hash (anonymous!)
+      });
+
+      console.log("Anonymous confession created:", confession.id);
+
+      res.json({
+        success: true,
+        confession,
+        txHash, // This is the RELAYER's tx hash - anonymous!
+        message: "Confession anchored anonymously"
+      });
+
+    } catch (error: any) {
+      console.error("Relayer submission failed:", error);
+      
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid data", details: error.errors });
+      }
+      
+      // Check for specific error types
+      if (error.message?.includes('Already exists')) {
+        return res.status(409).json({ error: "This confession has already been anchored" });
+      }
+      
+      res.status(500).json({ 
+        error: error.message || "Failed to submit confession",
+        fallback: true // Frontend can retry with direct submission
+      });
     }
   });
 
