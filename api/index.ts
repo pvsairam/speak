@@ -75,20 +75,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           payload: process.env.FARCASTER_PAYLOAD || "",
           signature: process.env.FARCASTER_SIGNATURE || ""
         },
-        frame: {
+        baseBuilder: {
+          ownerAddress: process.env.BASE_BUILDER_ADDRESS || ""
+        },
+        miniapp: {
           version: "1",
           name: "Crypto Confessions",
+          homeUrl: appUrl,
           iconUrl: `${appUrl}/icon.png`,
-          homeUrl: `${appUrl}`,
-          imageUrl: `${appUrl}/og-image.png`,
-          screenshotUrls: [],
-          tags: ["base", "crypto", "confessions", "social", "anonymous"],
-          primaryCategory: "social",
-          buttonTitle: "Confess Anonymously",
           splashImageUrl: `${appUrl}/splash.png`,
-          splashBackgroundColor: "#1a1a2e",
-          subtitle: "Crypto confessions on Base",
+          splashBackgroundColor: "#fdfbf7",
+          subtitle: "Anonymous crypto confessions",
           description: "Share your crypto secrets anonymously. Confessions are anchored forever on the Base blockchain.",
+          screenshotUrls: [`${appUrl}/screenshot.png`],
+          primaryCategory: "social",
+          tags: ["crypto", "confessions", "anonymous", "base", "social"],
+          heroImageUrl: `${appUrl}/hero.png`,
+          tagline: "Speak your crypto truth",
+          ogTitle: "Crypto Confessions - Speak.",
+          ogDescription: "Share your crypto secrets anonymously. Anchored forever on Base.",
+          ogImageUrl: `${appUrl}/og-image.png`,
+          webhookUrl: `${appUrl}/api/webhook`,
         },
       });
     }
