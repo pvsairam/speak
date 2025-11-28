@@ -281,8 +281,18 @@ const DetailView = ({ confession, onBack, handleVote, handleAnchor, userProfile 
                         rel="noreferrer"
                         className="flex items-center gap-3 px-3 py-2 hover:bg-gray-100 rounded-lg w-full text-left transition-colors font-bold text-sm text-purple-700"
                       >
-                        <FarcasterIcon size={16} /> Warpcast
+                        <FarcasterIcon size={16} /> Farcaster
                       </a>
+                      {confession.isAnchored && confession.txHash && (
+                        <a 
+                          href={`https://basescan.org/tx/${confession.txHash}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center gap-3 px-3 py-2 hover:bg-gray-100 rounded-lg w-full text-left transition-colors font-bold text-sm text-blue-600"
+                        >
+                          <ExternalLink size={16} /> View on Base
+                        </a>
+                      )}
                    </div>
                  )}
                </div>
