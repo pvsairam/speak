@@ -513,7 +513,11 @@ export async function registerRoutes(
   const relayerSubmitSchema = z.object({
     confessionText: z.string().min(1).max(1000),
     category: z.enum(confessionCategories),
+    paymentTxHash: z.string().regex(/^0x[a-fA-F0-9]{64}$/, "Invalid transaction hash"),
   });
+
+  // Track used payment hashes to prevent double-spend
+  const usedPaymentHashes = new Set<string>();
 
   app.post("/api/relayer/submit", async (req, res) => {
     try {
@@ -528,19 +532,25 @@ export async function registerRoutes(
         });
       }
       
-      const { confessionText, category } = relayerSubmitSchema.parse(req.body);
+      const { confessionText, category, paymentTxHash } = relayerSubmitSchema.parse(req.body);
       
       const walletClient = getWalletClient();
       const publicClient = getPublicClient();
       
       if (!walletClient || !CONTRACT_ADDRESS) {
         return res.status(503).json({ 
-          error: "Relayer not available",
-          fallback: true // Frontend should fall back to direct submission
+          error: "Relayer not available"
         });
       }
 
-      // Get required fee
+      // Check if payment hash was already used
+      if (usedPaymentHashes.has(paymentTxHash.toLowerCase())) {
+        return res.status(400).json({ 
+          error: "This payment has already been used for a confession"
+        });
+      }
+
+      // Get required fee from contract
       let feeWei = BigInt(330000000000000);
       try {
         const result = await publicClient.readContract({
@@ -553,17 +563,64 @@ export async function registerRoutes(
         console.log("Using default fee for relayer submission");
       }
 
-      // Check relayer has enough balance
+      // VERIFY PAYMENT: Check the user's payment transaction
+      console.log("Verifying payment transaction:", paymentTxHash);
+      
+      let paymentTx;
+      let paymentReceipt;
+      try {
+        paymentTx = await publicClient.getTransaction({ hash: paymentTxHash as `0x${string}` });
+        paymentReceipt = await publicClient.getTransactionReceipt({ hash: paymentTxHash as `0x${string}` });
+      } catch (e) {
+        console.error("Failed to fetch payment transaction:", e);
+        return res.status(400).json({ 
+          error: "Payment transaction not found. Please wait for confirmation and try again."
+        });
+      }
+
+      if (!paymentReceipt || paymentReceipt.status !== 'success') {
+        return res.status(400).json({ 
+          error: "Payment transaction failed or not confirmed"
+        });
+      }
+
+      // Verify payment was sent TO the relayer wallet
       const relayerAddress = getRelayerAddress();
+      if (!relayerAddress) {
+        return res.status(503).json({ error: "Relayer not configured" });
+      }
+
+      if (paymentTx.to?.toLowerCase() !== relayerAddress.toLowerCase()) {
+        return res.status(400).json({ 
+          error: "Payment must be sent to the relayer wallet",
+          expected: relayerAddress,
+          received: paymentTx.to
+        });
+      }
+
+      // Verify payment amount (allow 10% tolerance for gas price fluctuations)
+      const minPayment = (feeWei * BigInt(90)) / BigInt(100);
+      if (paymentTx.value < minPayment) {
+        return res.status(400).json({ 
+          error: "Insufficient payment amount",
+          required: feeWei.toString(),
+          received: paymentTx.value.toString()
+        });
+      }
+
+      console.log("Payment verified! From:", paymentTx.from, "Amount:", paymentTx.value.toString());
+      
+      // Mark payment as used BEFORE submitting (prevent race conditions)
+      usedPaymentHashes.add(paymentTxHash.toLowerCase());
+
+      // Check relayer has enough balance to submit
       const balance = await publicClient.getBalance({ address: relayerAddress as `0x${string}` });
       
       if (balance < feeWei + BigInt(100000000000000)) { // Fee + gas buffer
+        usedPaymentHashes.delete(paymentTxHash.toLowerCase()); // Rollback
         return res.status(503).json({ 
-          error: "Relayer wallet needs funding",
-          relayerAddress,
-          needed: (feeWei + BigInt(100000000000000)).toString(),
-          balance: balance.toString(),
-          fallback: true
+          error: "Relayer wallet needs more funding. Please try again later.",
+          relayerAddress
         });
       }
 

@@ -25,7 +25,8 @@ import { SketchButton, SketchCard, SketchInput, Badge, SketchVoteButton } from '
 import { isAnchoringEnabled, getConfessionFeeDisplay, getContractFee, getActiveChain } from '../services/web3Service';
 import { AppView, Confession, ConfessionCategory, UserProfile } from '../types';
 
-import { useAccount, useConnect, useDisconnect } from 'wagmi';
+import { useAccount, useConnect, useDisconnect, useSendTransaction, useWaitForTransactionReceipt } from 'wagmi';
+import { parseEther } from 'viem';
 import sdk from '@farcaster/frame-sdk';
 
 const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS || '0x0000000000000000000000000000000000000000';
@@ -356,14 +357,23 @@ interface SubmitViewProps {
   selectedCategory: ConfessionCategory;
   setSelectedCategory: (value: ConfessionCategory) => void;
   isProcessing: boolean;
-  handleSubmit: () => void;
+  handleSubmit: (paymentTxHash: string) => void;
   isConnected: boolean;
   onConnect: () => void;
+  relayerAddress: string | null;
+  feeWei: bigint;
 }
 
-const SubmitView = ({ inputText, setInputText, selectedCategory, setSelectedCategory, isProcessing, handleSubmit, isConnected, onConnect }: SubmitViewProps) => {
+const SubmitView = ({ inputText, setInputText, selectedCategory, setSelectedCategory, isProcessing, handleSubmit, isConnected, onConnect, relayerAddress, feeWei }: SubmitViewProps) => {
   const [feeDisplay, setFeeDisplay] = useState('$1.00');
+  const [paymentStep, setPaymentStep] = useState<'write' | 'paying' | 'confirming' | 'submitting'>('write');
+  const [paymentError, setPaymentError] = useState<string | null>(null);
   
+  const { sendTransaction, data: txHash, isPending: isSendPending, error: sendError, reset: resetSendTransaction } = useSendTransaction();
+  const { isLoading: isConfirming, isSuccess: isConfirmed, error: confirmError } = useWaitForTransactionReceipt({
+    hash: txHash,
+  });
+
   useEffect(() => {
     const draft = localStorage.getItem('confession_draft');
     if (draft) {
@@ -378,6 +388,65 @@ const SubmitView = ({ inputText, setInputText, selectedCategory, setSelectedCate
   useEffect(() => {
     getConfessionFeeDisplay().then(setFeeDisplay).catch(() => setFeeDisplay('$1.00'));
   }, []);
+
+  // Handle payment confirmation and submission
+  useEffect(() => {
+    if (isConfirmed && txHash && paymentStep === 'confirming') {
+      console.log("Payment confirmed:", txHash);
+      setPaymentStep('submitting');
+      handleSubmit(txHash);
+    }
+  }, [isConfirmed, txHash, paymentStep, handleSubmit]);
+
+  // Handle errors
+  useEffect(() => {
+    if (sendError) {
+      console.error("Payment failed:", sendError);
+      setPaymentError(sendError.message || "Payment failed. Please try again.");
+      setPaymentStep('write');
+      resetSendTransaction();
+    }
+    if (confirmError) {
+      console.error("Confirmation failed:", confirmError);
+      setPaymentError("Transaction confirmation failed. Please try again.");
+      setPaymentStep('write');
+      resetSendTransaction();
+    }
+  }, [sendError, confirmError, resetSendTransaction]);
+
+  const initiatePayment = async () => {
+    if (!inputText.trim()) {
+      setPaymentError("Please write your confession first.");
+      return;
+    }
+    
+    if (!relayerAddress) {
+      setPaymentError("Relayer not available. Please try again later.");
+      return;
+    }
+
+    setPaymentError(null);
+    setPaymentStep('paying');
+
+    try {
+      sendTransaction({
+        to: relayerAddress as `0x${string}`,
+        value: feeWei,
+      });
+      setPaymentStep('confirming');
+    } catch (error: any) {
+      console.error("Payment initiation failed:", error);
+      setPaymentError(error.message || "Failed to initiate payment.");
+      setPaymentStep('write');
+    }
+  };
+
+  // Reset state when leaving or completing
+  const resetPaymentState = () => {
+    setPaymentStep('write');
+    setPaymentError(null);
+    resetSendTransaction();
+  };
 
   if (!isConnected) {
       return (
@@ -397,6 +466,15 @@ const SubmitView = ({ inputText, setInputText, selectedCategory, setSelectedCate
       )
   }
 
+  const isPaymentInProgress = paymentStep !== 'write' || isProcessing;
+  
+  const getButtonText = () => {
+    if (isProcessing || paymentStep === 'submitting') return "Anchoring on-chain...";
+    if (paymentStep === 'confirming' || isConfirming) return "Confirming payment...";
+    if (paymentStep === 'paying' || isSendPending) return "Waiting for wallet...";
+    return `Pay ${feeDisplay} & Submit`;
+  };
+
   return (
     <div className="h-full flex flex-col justify-center animate-fade-in">
       <h2 className="text-3xl font-display font-black mb-4">Confess.</h2>
@@ -407,6 +485,7 @@ const SubmitView = ({ inputText, setInputText, selectedCategory, setSelectedCate
           placeholder="I aped into..." 
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
+          disabled={isPaymentInProgress}
         />
         <div className="absolute -top-3 -right-3 -rotate-12 bg-yellow-200 border-2 border-black px-3 py-1 shadow-sm font-hand text-xs font-bold transform">
           Anonymous
@@ -419,12 +498,13 @@ const SubmitView = ({ inputText, setInputText, selectedCategory, setSelectedCate
           {CATEGORIES.map(cat => (
             <button
               key={cat}
-              onClick={() => setSelectedCategory(cat)}
+              onClick={() => !isPaymentInProgress && setSelectedCategory(cat)}
+              disabled={isPaymentInProgress}
               className={`px-3 py-1.5 border-2 border-black rounded-md font-bold text-sm transition-all ${
                 selectedCategory === cat 
                   ? 'bg-black text-white' 
                   : 'bg-white hover:bg-gray-100'
-              }`}
+              } ${isPaymentInProgress ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               #{cat}
             </button>
@@ -444,16 +524,38 @@ const SubmitView = ({ inputText, setInputText, selectedCategory, setSelectedCate
         <span className="text-sm text-gray-600">
           Fee: <span className="font-bold text-black">{feeDisplay}</span> + gas
         </span>
+        <p className="text-xs text-gray-400 mt-1">Paid to keep your identity hidden</p>
       </div>
 
+      {paymentError && (
+        <div className="bg-red-50 border-2 border-red-200 rounded-lg p-3 mb-4 text-center">
+          <span className="text-sm text-red-600">{paymentError}</span>
+          <button 
+            onClick={resetPaymentState}
+            className="block mx-auto mt-2 text-xs text-red-500 underline"
+          >
+            Try again
+          </button>
+        </div>
+      )}
+
       <SketchButton 
-        isLoading={isProcessing} 
-        onClick={handleSubmit} 
+        isLoading={isPaymentInProgress} 
+        onClick={initiatePayment} 
         className="w-full"
         icon={Send}
+        disabled={isPaymentInProgress || !inputText.trim()}
       >
-        Anchor to Blockchain
+        {getButtonText()}
       </SketchButton>
+      
+      {paymentStep !== 'write' && (
+        <p className="text-xs text-center text-gray-400 mt-3">
+          {paymentStep === 'paying' && "Approve the transaction in your wallet..."}
+          {paymentStep === 'confirming' && "Waiting for blockchain confirmation..."}
+          {paymentStep === 'submitting' && "Payment verified! Anchoring your confession..."}
+        </p>
+      )}
     </div>
   );
 };
@@ -695,10 +797,35 @@ export default function App() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [pendingConfessionText, setPendingConfessionText] = useState<string | null>(null);
   const [pendingCategory, setPendingCategory] = useState<ConfessionCategory>('Other');
+  
+  // Relayer info for payment
+  const [relayerAddress, setRelayerAddress] = useState<string | null>(null);
+  const [feeWei, setFeeWei] = useState<bigint>(BigInt(330000000000000)); // Default ~$1
 
   const { address, isConnected } = useAccount();
   const { connect, connectors } = useConnect();
   const { disconnect } = useDisconnect();
+
+  // Fetch relayer info on mount
+  useEffect(() => {
+    const fetchRelayerInfo = async () => {
+      try {
+        const response = await fetch('/api/relayer/info');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.enabled && data.relayerAddress) {
+            setRelayerAddress(data.relayerAddress);
+            if (data.feeWei) {
+              setFeeWei(BigInt(data.feeWei));
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Failed to fetch relayer info:", e);
+      }
+    };
+    fetchRelayerInfo();
+  }, []);
 
   useEffect(() => {
     const loadConfessions = async () => {
@@ -732,7 +859,7 @@ export default function App() {
     disconnect();
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = useCallback(async (paymentTxHash: string) => {
     if (!inputText.trim()) return;
     
     if (!isConnected) {
@@ -750,13 +877,14 @@ export default function App() {
     setPendingCategory(selectedCategory);
 
     try {
-      // First, try to use the anonymous relayer
+      // Submit confession with payment proof
       const relayerResponse = await fetch('/api/relayer/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           confessionText: inputText,
           category: selectedCategory,
+          paymentTxHash: paymentTxHash,
         }),
       });
 
@@ -787,16 +915,14 @@ export default function App() {
         return;
       }
       
-      // Relayer is not available - show clear error message
-      // We do NOT fall back to direct submission because it would expose user wallets
-      if (relayerData.fallback) {
-        console.log("Relayer unavailable:", relayerData.error);
-        throw new Error("Anonymous submission service is temporarily unavailable. Your confession was NOT posted to protect your privacy. Please try again later.");
-      }
-      
       // Rate limit or other error
       if (relayerData.retryAfter) {
         throw new Error("Too many submissions. Please wait an hour before trying again.");
+      }
+      
+      // Payment verification failed
+      if (relayerData.error?.includes('Payment')) {
+        throw new Error(relayerData.error);
       }
       
       // Other error
@@ -808,7 +934,7 @@ export default function App() {
       setIsProcessing(false);
       setPendingConfessionText(null);
     }
-  };
+  }, [inputText, selectedCategory, isConnected, setView]);
 
   const handleAnchor = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
@@ -939,6 +1065,8 @@ export default function App() {
               handleSubmit={handleSubmit}
               isConnected={isConnected}
               onConnect={handleConnect}
+              relayerAddress={relayerAddress}
+              feeWei={feeWei}
             />
           )}
           {view === AppView.TRENDS && <TrendsView />}
