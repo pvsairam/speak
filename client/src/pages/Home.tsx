@@ -196,12 +196,12 @@ const DetailView = ({ confession, onBack, handleVote, handleAnchor, userProfile 
 
   if (!confession) return <div>Confession not found</div>;
 
-  // Share promotes the app, not the confession content (to keep it anonymous)
-  const shareText = encodeURIComponent(`I just posted an anonymous confession on Crypto Confessions! Share your crypto secrets without revealing your identity. #CryptoConfessions #Base`);
-  const appUrl = encodeURIComponent(window.location.origin);
+  // Share promotes the app without hinting the user posted anything (full anonymity)
+  const shareText = encodeURIComponent(`Crypto Confessions - Anonymous confessions from the crypto community, anchored on Base. What secrets are people hiding? #CryptoConfessions #Base`);
+  const appUrl = encodeURIComponent('https://farcaster.xyz/miniapps/hWfqSVjWDGGI/crypto-confessions');
 
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(window.location.origin);
+    navigator.clipboard.writeText('https://farcaster.xyz/miniapps/hWfqSVjWDGGI/crypto-confessions');
     setLinkCopied(true);
     setTimeout(() => setLinkCopied(false), 2000);
     setShowShareMenu(false);
