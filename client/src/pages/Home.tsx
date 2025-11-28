@@ -311,6 +311,18 @@ const DetailView = ({ confession, onBack, handleVote, handleAnchor, userProfile 
            <h3 className="font-bold text-sm uppercase text-gray-400 mb-3 tracking-widest">Metadata</h3>
            <div className="space-y-3 font-mono text-sm">
                <div className="flex justify-between items-center">
+                   <span>Category:</span>
+                   <span className="font-bold text-black">#{confession.category}</span>
+               </div>
+               <div className="flex justify-between items-center">
+                   <span>Posted:</span>
+                   <span className="text-gray-600">{new Date(confession.timestamp).toLocaleDateString()}</span>
+               </div>
+               <div className="flex justify-between items-center">
+                   <span>Reactions:</span>
+                   <span className="text-gray-600">{confession.likes + confession.dislikes} total</span>
+               </div>
+               <div className="flex justify-between items-center pt-2 border-t border-dashed border-gray-300">
                    <span>Status:</span>
                    {confession.isAnchored ? (
                        <span className="flex items-center gap-1 text-cyan-600 font-bold">
@@ -322,7 +334,7 @@ const DetailView = ({ confession, onBack, handleVote, handleAnchor, userProfile 
                </div>
                {confession.isAnchored && confession.txHash && (
                    <div className="flex justify-between items-center pt-2 border-t border-dashed border-gray-300">
-                       <span>Proof:</span>
+                       <span>Tx Hash:</span>
                        <a 
                           href={`https://basescan.org/tx/${confession.txHash}`} 
                           target="_blank" 
@@ -330,7 +342,7 @@ const DetailView = ({ confession, onBack, handleVote, handleAnchor, userProfile 
                           className="flex items-center gap-1 text-blue-600 underline"
                           data-testid="link-tx-proof"
                         >
-                           Verify on Base <ExternalLink size={12} />
+                           {confession.txHash.slice(0, 6)}...{confession.txHash.slice(-4)} <ExternalLink size={12} />
                        </a>
                    </div>
                )}
