@@ -1,11 +1,12 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Switch, Route } from "wouter";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import CryptoConfessions from "@/pages/Home";
 import AdminPage from "@/pages/Admin";
+import { SplashScreen } from "@/components/SplashScreen";
 
 import { WagmiProvider } from 'wagmi';
 import { wagmiConfig } from './lib/wagmiConfig';
@@ -38,11 +39,14 @@ function FrameReadyProvider({ children }: { children: React.ReactNode }) {
 }
 
 function App() {
+  const [showSplash, setShowSplash] = useState(true);
+
   return (
     <WagmiProvider config={wagmiConfig}>
       <QueryClientProvider client={queryClient}>
         <FrameReadyProvider>
           <TooltipProvider>
+            {showSplash && <SplashScreen onComplete={() => setShowSplash(false)} />}
             <Toaster />
             <Router />
           </TooltipProvider>
