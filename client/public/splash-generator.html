@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Splash Screen Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,600;1,400&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              paper: '#fdfbf7',
+              teal: { DEFAULT: '#2dd4bf' }
+            },
+            fontFamily: {
+              sans: ['"IBM Plex Sans"', 'sans-serif'],
+              display: ['"Inter"', 'sans-serif'],
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      body {
+        background-color: #fdfbf7;
+        background-image: radial-gradient(#e5e7eb 1px, transparent 1px);
+        background-size: 20px 20px;
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+      }
+    </style>
+</head>
+<body>
+    <!-- 
+      INSTRUCTIONS:
+      1. Open this file in Chrome.
+      2. Open DevTools (F12) -> Toggle Device Toolbar (Ctrl+Shift+M).
+      3. Set dimensions to 1024 x 1792 (or typical phone ratio).
+      4. Capture Screenshot.
+      5. Use that image for your Farcaster Manifest.
+    -->
+    <div class="relative flex flex-col items-center justify-center p-10">
+      
+      <!-- Background Ink Bleed (Static) -->
+      <div class="absolute w-[800px] h-[800px] bg-teal rounded-full mix-blend-multiply filter blur-3xl opacity-20 transform -translate-y-10"></div>
+
+      <!-- Main Content -->
+      <div class="relative z-10 flex flex-col items-center transform scale-150">
+        
+        <!-- Pen Nib Logo -->
+        <div class="w-32 h-32 mb-8 relative drop-shadow-2xl">
+             <svg viewBox="0 0 100 100" fill="none" stroke="black" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" class="w-full h-full">
+                <!-- Static final state of the logo -->
+                <path d="M50 95 L50 65 L20 20 C15 15 15 5 25 5 L75 5 C85 5 85 15 80 20 L50 65" fill="white" />
+                <path d="M50 65 L50 35" />
+                <circle cx="50" cy="25" r="5" fill="black" />
+             </svg>
+        </div>
+
+        <!-- Text -->
+        <h1 class="text-7xl font-display font-black tracking-tight mb-4 text-black">
+          Speak.
+        </h1>
+        <p class="text-gray-500 font-mono text-lg tracking-widest uppercase">
+          Into the void
+        </p>
+
+      </div>
+    </div>
+</body>
+</html>
