@@ -197,7 +197,7 @@ const DetailView = ({ confession, onBack, handleVote, handleAnchor, userProfile 
   if (!confession) return <div>Confession not found</div>;
 
   // Share promotes the app without hinting the user posted anything (full anonymity)
-  const shareText = encodeURIComponent(`Crypto Confessions - Anonymous confessions from the crypto community, anchored on Base. What secrets are people hiding? #CryptoConfessions #Base`);
+  const shareText = encodeURIComponent(`found this app where people anonymously confess their crypto mistakes and wins. pretty wild stuff in here`);
   const appUrl = encodeURIComponent('https://farcaster.xyz/miniapps/hWfqSVjWDGGI/crypto-confessions');
 
   const handleCopyLink = () => {
