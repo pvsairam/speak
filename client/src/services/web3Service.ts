@@ -66,40 +66,25 @@ const getProvider = () => {
   return null;
 };
 
-const RPC_URLS: Record<number, string[]> = {
-  [base.id]: [
-    'https://base-mainnet.g.alchemy.com/v2/demo',
-    'https://1rpc.io/base',
-    'https://base.llamarpc.com',
-    'https://mainnet.base.org',
-  ],
-  [sepolia.id]: [
-    'https://rpc.sepolia.org',
-    'https://sepolia.drpc.org',
-    'https://ethereum-sepolia-rpc.publicnode.com',
-  ],
+// Fast RPC endpoint - use the official Base RPC directly
+const FAST_RPC: Record<number, string> = {
+  [base.id]: 'https://mainnet.base.org',
+  [sepolia.id]: 'https://rpc.sepolia.org',
 };
 
-const getPublicClient = async () => {
+// Cached fee data with 5 minute expiry
+let cachedFee: { feeWei: bigint; feeUsd: number; ethPrice: number; timestamp: number } | null = null;
+const FEE_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+const getPublicClient = () => {
   const chain = getActiveChain();
-  const rpcUrls = RPC_URLS[chain.id] || [chain.rpcUrls.default.http[0]];
   
-  for (const rpcUrl of rpcUrls) {
-    try {
-      const client = createPublicClient({
-        chain,
-        transport: http(rpcUrl)
-      });
-      await client.getBlockNumber();
-      return client;
-    } catch (e) {
-      continue;
-    }
-  }
-  
+  // Create client with fast RPC - no caching to avoid stale client issues
   return createPublicClient({
     chain,
-    transport: http(rpcUrls[0])
+    transport: http(FAST_RPC[chain.id] || chain.rpcUrls.default.http[0], {
+      timeout: 10000,
+    })
   });
 };
 
@@ -167,68 +152,74 @@ export const switchToCorrectNetwork = async (): Promise<void> => {
 };
 
 export const getContractFee = async (): Promise<{ feeWei: bigint; feeUsd: number; ethPrice: number }> => {
-  const DEFAULT_FEE = { feeWei: BigInt(400000000000000), feeUsd: 1.00, ethPrice: 2500 };
+  // Default fallback for ~$1 at $3000 ETH
+  const DEFAULT_FEE = { feeWei: BigInt(330000000000000), feeUsd: 1.00, ethPrice: 3000 };
   
   if (!isAnchoringEnabled()) {
     return { feeWei: BigInt(0), feeUsd: 0, ethPrice: 0 };
   }
 
+  // Return cached fee if still valid
+  if (cachedFee && (Date.now() - cachedFee.timestamp) < FEE_CACHE_TTL) {
+    console.log('Using cached fee:', cachedFee.feeWei.toString(), 'wei');
+    return { feeWei: cachedFee.feeWei, feeUsd: cachedFee.feeUsd, ethPrice: cachedFee.ethPrice };
+  }
+
   try {
-    const publicClient = await getPublicClient();
+    const publicClient = getPublicClient();
     
     let feeWei: bigint = DEFAULT_FEE.feeWei;
     let feeUsdCents: number = 100;
-    let ethPriceRaw: number = 250000000000;
+    let ethPriceRaw: number = 300000000000; // $3000 with 8 decimals
 
-    try {
-      const result = await publicClient.readContract({
+    // Fetch all data in parallel for speed
+    const [feeResult, centsResult, priceResult] = await Promise.allSettled([
+      publicClient.readContract({
         address: CONTRACT_ADDRESS as `0x${string}`,
         abi: ABI,
         functionName: 'getFeeInWei',
-      });
-      feeWei = result as bigint;
-    } catch {
-      try {
-        const result = await publicClient.readContract({
-          address: CONTRACT_ADDRESS as `0x${string}`,
-          abi: ABI,
-          functionName: 'confessionFee',
-        });
-        feeWei = result as bigint;
-      } catch {
-        console.log('Using default fee: contract fee functions not available');
-      }
-    }
-
-    try {
-      const result = await publicClient.readContract({
+      }),
+      publicClient.readContract({
         address: CONTRACT_ADDRESS as `0x${string}`,
         abi: ABI,
         functionName: 'feeUsdCents',
-      });
-      feeUsdCents = Number(result);
-    } catch {
-      console.log('Using default USD fee');
-    }
-
-    try {
-      const result = await publicClient.readContract({
+      }),
+      publicClient.readContract({
         address: CONTRACT_ADDRESS as `0x${string}`,
         abi: ABI,
         functionName: 'getEthPrice',
-      });
-      ethPriceRaw = Number(result);
-    } catch {
-      console.log('Using default ETH price');
+      }),
+    ]);
+
+    if (feeResult.status === 'fulfilled') {
+      feeWei = feeResult.value as bigint;
+    }
+    if (centsResult.status === 'fulfilled') {
+      feeUsdCents = Number(centsResult.value);
+    }
+    if (priceResult.status === 'fulfilled') {
+      ethPriceRaw = Number(priceResult.value);
     }
 
-    return {
+    const result = {
       feeWei,
       feeUsd: feeUsdCents / 100,
       ethPrice: ethPriceRaw / 1e8,
     };
+
+    // Cache the result
+    cachedFee = { ...result, timestamp: Date.now() };
+
+    console.log('Contract fee fetched:', {
+      feeWei: feeWei.toString(),
+      feeEth: Number(feeWei) / 1e18,
+      feeUsd: result.feeUsd,
+      ethPrice: result.ethPrice,
+    });
+
+    return result;
   } catch (error) {
-    console.log("Using default contract fee");
+    console.log("Using default contract fee due to error:", error);
     return DEFAULT_FEE;
   }
 };
@@ -236,6 +227,13 @@ export const getContractFee = async (): Promise<{ feeWei: bigint; feeUsd: number
 export const getConfessionFeeDisplay = async (): Promise<string> => {
   const { feeUsd } = await getContractFee();
   return `$${feeUsd.toFixed(2)}`;
+};
+
+// Get actual USD value based on fee and ETH price
+export const getActualFeeUsd = async (): Promise<number> => {
+  const { feeWei, ethPrice } = await getContractFee();
+  const feeEth = Number(feeWei) / 1e18;
+  return feeEth * ethPrice;
 };
 
 export const anchorOnChain = async (confessionText: string): Promise<string> => {
@@ -262,10 +260,22 @@ export const anchorOnChain = async (confessionText: string): Promise<string> => 
     const [account] = await walletClient.requestAddresses();
 
     // Get exact fee from contract
-    const { feeWei } = await getContractFee();
+    const { feeWei, ethPrice } = await getContractFee();
+    const feeEth = Number(feeWei) / 1e18;
+    const actualUsd = feeEth * ethPrice;
     
-    console.log('Confession fee from contract:', feeWei.toString(), 'wei');
-    console.log('Fee in ETH:', Number(feeWei) / 1e18);
+    console.log('Transaction details:', {
+      feeWei: feeWei.toString(),
+      feeEth: feeEth.toFixed(6),
+      ethPrice: `$${ethPrice.toFixed(2)}`,
+      actualUsd: `$${actualUsd.toFixed(2)}`,
+    });
+
+    // Warn if fee seems too high (contract bug detection)
+    if (actualUsd > 10) {
+      console.warn(`WARNING: Fee appears too high ($${actualUsd.toFixed(2)}). Contract may need setFee(1) to be called.`);
+      throw new Error(`Fee is $${actualUsd.toFixed(2)} (expected ~$1). The contract owner needs to call setFee(1) to fix this.`);
+    }
 
     // Create a keccak256 hash of the confession text
     const hash = keccak256(toHex(confessionText));
@@ -277,8 +287,7 @@ export const anchorOnChain = async (confessionText: string): Promise<string> => 
       args: [hash]
     });
 
-    console.log('Sending transaction to contract:', CONTRACT_ADDRESS);
-    console.log('Value:', feeWei.toString(), 'wei');
+    console.log('Sending transaction...');
 
     const hashTx = await walletClient.sendTransaction({
       account,
@@ -289,6 +298,10 @@ export const anchorOnChain = async (confessionText: string): Promise<string> => 
     });
 
     console.log('Transaction hash:', hashTx);
+    
+    // Clear cached fee after successful transaction
+    cachedFee = null;
+    
     return hashTx;
 
   } catch (error: any) {
@@ -296,13 +309,18 @@ export const anchorOnChain = async (confessionText: string): Promise<string> => 
     
     // Provide more helpful error messages
     if (error.message?.includes('insufficient funds')) {
-      throw new Error('Insufficient ETH balance. You need at least $1.05 worth of ETH on Base.');
+      const { feeWei, ethPrice } = await getContractFee();
+      const actualUsd = (Number(feeWei) / 1e18) * ethPrice;
+      throw new Error(`Insufficient ETH balance. You need at least $${actualUsd.toFixed(2)} worth of ETH on Base.`);
     }
     if (error.message?.includes('user rejected') || error.message?.includes('User denied')) {
       throw new Error('Transaction was cancelled.');
     }
-    if (error.message?.includes('Internal JSON-RPC error')) {
-      throw new Error('Transaction would fail. The contract may require exact fee or the hash may already exist.');
+    if (error.message?.includes('Insufficient fee')) {
+      throw new Error('The transaction requires a higher fee. Please ensure you have enough ETH.');
+    }
+    if (error.message?.includes('setFee(1)')) {
+      throw error; // Re-throw our custom error
     }
     throw error;
   }
