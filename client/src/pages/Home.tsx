@@ -173,8 +173,6 @@ const HomeView = ({ confessions, openConfessionDetail, handleVote, handleAnchor,
                       count={confession.dislikes}
                   />
                 </div>
-                
-                <div className={`h-2 w-2 rounded-full ml-1 ${confession.sentimentScore > 50 ? 'bg-green-400' : 'bg-red-400'}`} title={`Sentiment: ${confession.sentimentScore}`} />
               </div>
 
               <button 
@@ -312,12 +310,6 @@ const DetailView = ({ confession, onBack, handleVote, handleAnchor, userProfile 
        <div className="bg-white border-2 border-black rounded-xl p-5 shadow-sketch mb-8 animate-sketch-in" style={{animationDelay: '100ms'}}>
            <h3 className="font-bold text-sm uppercase text-gray-400 mb-3 tracking-widest">Metadata</h3>
            <div className="space-y-3 font-mono text-sm">
-               <div className="flex justify-between">
-                   <span>Sentiment Score:</span>
-                   <span className={confession.sentimentScore > 50 ? 'text-green-600 font-bold' : 'text-red-500 font-bold'}>
-                       {confession.sentimentScore}/100
-                   </span>
-               </div>
                <div className="flex justify-between items-center">
                    <span>Status:</span>
                    {confession.isAnchored ? (
